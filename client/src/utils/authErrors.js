@@ -26,10 +26,10 @@ export const getFriendlyAuthErrorMessage = (error) => {
       return 'Network error. Please check your internet connection and try again.';
     case 'auth/too-many-requests':
       return 'Too many unsuccessful attempts. Please wait a few minutes before trying again.';
-    case 'auth/user-disabled':
-      return 'This account has been disabled. Please contact support.';
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized for Google Sign-In. Add this domain in Firebase Console > Authentication > Settings > Authorized domains.';
     case 'auth/operation-not-allowed':
-      return 'This sign-in method is not enabled. Please contact support.';
+      return 'This sign-in method is not enabled. Please enable Google Sign-In in Firebase Console.';
     default:
       if (typeof error === 'string') return error;
       return error.message || 'Authentication failed. Please try again.';
