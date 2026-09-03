@@ -227,7 +227,7 @@ export const TestsPage = () => {
           <div className="py-16 text-center space-y-3">
             <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
             <p className="text-xs font-bold text-slate-700">
-              Generating customized {activeTestCategory} questions with Gemini AI...
+              Generating customized {activeTestCategory} questions with English360 AI...
             </p>
           </div>
         ) : currentQ ? (

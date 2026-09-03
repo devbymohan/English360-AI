@@ -98,7 +98,7 @@ export const AICoachPage = () => {
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <h3 className="text-sm font-bold text-slate-900">Interactive Coaching Chat</h3>
               </div>
-              <span className="text-xs text-slate-400 font-semibold">Gemini 2.5 Flash</span>
+              <span className="text-xs text-brand-600 bg-brand-50 px-2.5 py-0.5 rounded-full font-bold">English360 AI</span>
             </div>
 
             {/* Chat Messages */}

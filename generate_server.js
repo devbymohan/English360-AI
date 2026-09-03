@@ -336,45 +336,45 @@ Object.entries(models).forEach(([filename, content]) => {
   fs.writeFileSync(path.join(serverDir, 'models', filename), content.trim());
 });
 
-// 8. Gemini Service placeholder
-fs.writeFileSync(path.join(serverDir, 'services', 'geminiService.js'), `// Google Gemini Service Foundation (Phase 1 Placeholder)
+// 8. English360 AI Service placeholder
+fs.writeFileSync(path.join(serverDir, 'services', 'geminiService.js'), `// English360 AI Service Foundation (Phase 1 Placeholder)
 // Ready for full AI learning algorithms and prompt chains in AI phase
 
-export const getGeminiModel = () => {
+export const getAIModel = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn('[Gemini] Warning: GEMINI_API_KEY is not configured in .env');
+    console.warn('[English360 AI] Warning: API key is not configured in .env');
     return null;
   }
-  return { apiKey, model: 'gemini-1.5-pro' };
+  return { apiKey, model: 'gemini-2.5-flash' };
 };
 
 export const generateGrammarQuestions = async (topic, level) => {
-  return { message: 'Gemini grammar generator foundation ready' };
+  return { message: 'English360 AI grammar generator foundation ready' };
 };
 
 export const generateVocabularyContent = async (topic, level) => {
-  return { message: 'Gemini vocabulary generator foundation ready' };
+  return { message: 'English360 AI vocabulary generator foundation ready' };
 };
 
 export const generateReadingPassage = async (topic, level) => {
-  return { message: 'Gemini reading passage generator foundation ready' };
+  return { message: 'English360 AI reading passage generator foundation ready' };
 };
 
 export const evaluateWriting = async (topic, essayContent, level) => {
-  return { message: 'Gemini writing evaluator foundation ready' };
+  return { message: 'English360 AI writing evaluator foundation ready' };
 };
 
 export const generateListeningContent = async (topic, level) => {
-  return { message: 'Gemini listening content generator foundation ready' };
+  return { message: 'English360 AI listening content generator foundation ready' };
 };
 
 export const evaluateAssessment = async (answers) => {
-  return { message: 'Gemini assessment evaluator foundation ready' };
+  return { message: 'English360 AI assessment evaluator foundation ready' };
 };
 
 export const generateAIRecommendations = async (userProgress) => {
-  return { message: 'Gemini recommendation engine foundation ready' };
+  return { message: 'English360 AI recommendation engine foundation ready' };
 };
 `);
 

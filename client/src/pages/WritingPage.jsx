@@ -152,7 +152,7 @@ export const WritingPage = () => {
               <div className="py-16 text-center space-y-3">
                 <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
                 <p className="text-xs font-bold text-slate-700">
-                  Gemini AI is assessing vocabulary, grammar, clarity, and coherence...
+                  English360 AI is assessing vocabulary, grammar, clarity, and coherence...
                 </p>
               </div>
             ) : evaluation ? (
