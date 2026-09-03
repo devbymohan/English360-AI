@@ -1,0 +1,19 @@
+{
+  "name": "english360-server",
+  "version": "1.0.0",
+  "description": "Backend API for English360 AI - AI-powered English learning platform",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "firebase-admin": "^12.0.0",
+    "mongoose": "^8.24.4"
+  }
+}
