@@ -398,6 +398,11 @@ export const AssessmentPage = () => {
         englishLevel: level,
         overallScore,
         streak,
+        grammarScore,
+        vocabularyScore,
+        readingScore,
+        writingScore,
+        listeningScore,
       });
       setHasCompletedAssessment(true);
       setCurrentSectionIdx(5); // Results step

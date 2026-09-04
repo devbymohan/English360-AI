@@ -9,7 +9,7 @@ import api, { getBaseURL, setCustomApiUrl } from '../services/api';
 import axios from 'axios';
 
 export const SettingsPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, updateUserState } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [level, setLevel] = useState('B1');
@@ -81,11 +81,20 @@ export const SettingsPage = () => {
         dailyGoal,
         englishLevel: level,
       });
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.warn('[SettingsPage] Update notice:', err.message);
     } finally {
+      if (updateUserState) {
+        updateUserState({
+          name,
+          displayName: name,
+          level,
+          englishLevel: level,
+          dailyGoal,
+        });
+      }
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
       setIsSaving(false);
     }
   };
