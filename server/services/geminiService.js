@@ -140,8 +140,16 @@ const getModel = (modelName = 'gemini-2.5-flash') => {
       temperature: 0.7,
       topP: 0.95,
       responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
+};
+
+const generateWithFastTimeout = async (model, prompt, timeoutMs = 4500) => {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('AI response took > 4.5s; using instant educational generator')), timeoutMs)
+  );
+  return Promise.race([model.generateContent(prompt), timeoutPromise]);
 };
 
 // ==========================================
@@ -1483,7 +1491,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
       parsed.questions = normalizeQuestions(parsed.questions);
@@ -2098,7 +2106,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && Array.isArray(parsed.words) && parsed.words.length >= targetCount) {
       return {
@@ -3034,7 +3042,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (
       parsed &&
@@ -3229,7 +3237,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
 
     if (parsed && parsed.scores && typeof parsed.scores.taskAchievement === 'number') {
@@ -4345,7 +4353,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (
       parsed &&
@@ -4472,7 +4480,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && parsed.sections) {
       if (parsed.sections?.grammar) parsed.sections.grammar = normalizeQuestions(parsed.sections.grammar);
@@ -4607,7 +4615,7 @@ Return ONLY valid JSON matching this schema:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
       parsed.questions = normalizeQuestions(parsed.questions);
@@ -4687,7 +4695,7 @@ Respond with JSON format:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && parsed.reply) {
       return parsed;
@@ -4736,7 +4744,7 @@ Return ONLY valid JSON:
 
   try {
     const model = getModel();
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFastTimeout(model, prompt);
     const parsed = cleanAndParseJSON(result.response.text(), null);
     if (parsed && Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
       return parsed;
