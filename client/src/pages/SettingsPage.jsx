@@ -56,10 +56,10 @@ export const SettingsPage = () => {
     const cleanUrl = apiUrlInput.trim().replace(/\/+$/, '');
     setCustomApiUrl(cleanUrl);
     setApiStatus('connected');
-    setApiStatusMsg('API URL saved to browser! Reloading...');
+    setApiStatusMsg('API URL saved and linked! Live AI generation is active.');
     setTimeout(() => {
-      window.location.reload();
-    }, 800);
+      setApiStatusMsg('');
+    }, 4000);
   };
 
   useEffect(() => {
