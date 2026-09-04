@@ -78,11 +78,13 @@ export const DashboardPage = () => {
     user?.email?.split('@')[0] ||
     'Student';
 
-  const isAssessed = Boolean(
-    dashboardData?.user?.assessmentCompleted || user?.assessmentCompleted
-  );
-
   const englishLevel = dashboardData?.user?.englishLevel || user?.level || user?.englishLevel || 'Not Assessed';
+
+  const isAssessed = Boolean(
+    dashboardData?.user?.assessmentCompleted ||
+    user?.assessmentCompleted ||
+    (englishLevel && englishLevel !== 'Not Assessed')
+  );
   const streak = dashboardData?.streak ?? user?.streak ?? 0;
   const overallScore = dashboardData?.user?.overallScore || user?.overallScore || 0;
   const activities = dashboardData?.recentActivities || [];

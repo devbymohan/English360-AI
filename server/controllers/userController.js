@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
+import Assessment from '../models/Assessment.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
-import { userStore, getOrCreateUser } from '../utils/inMemoryStore.js';
+import { userStore, getOrCreateUser, assessmentStore } from '../utils/inMemoryStore.js';
 
 /**
  * POST /api/users
@@ -9,11 +10,15 @@ import { userStore, getOrCreateUser } from '../utils/inMemoryStore.js';
  */
 export const syncUser = async (req, res) => {
   try {
-    const firebaseUid = req.firebaseUid || req.user?.uid || req.body.firebaseUid;
+    const firebaseUid = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.body.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
     const email = req.body.email || req.user?.email;
     const name = req.body.name || req.user?.name || req.user?.displayName || 'Student';
     const photoURL = req.body.photoURL || req.user?.photoURL || '';
-    const englishLevel = req.body.englishLevel || req.body.level || 'Not Assessed';
+    const incomingLevel = req.body.englishLevel || req.body.level || null;
+    const incomingCompleted = req.body.assessmentCompleted === true;
+    const incomingScore = typeof req.body.overallScore === 'number' ? req.body.overallScore : null;
 
     if (!firebaseUid) {
       return errorResponse(res, 'Firebase UID is required to sync user profile.', 400);
@@ -22,6 +27,7 @@ export const syncUser = async (req, res) => {
     // If MongoDB is connected, use real MongoDB collection
     if (mongoose.connection.readyState === 1) {
       let existingUser = await User.findOne({ firebaseUid });
+      const latestAssessment = await Assessment.findOne({ userId: firebaseUid }).sort({ createdAt: -1 });
 
       if (existingUser) {
         if (name && existingUser.name === 'Student' && name !== 'Student') {
@@ -30,20 +36,37 @@ export const syncUser = async (req, res) => {
         if (photoURL && !existingUser.photoURL) {
           existingUser.photoURL = photoURL;
         }
+
+        // Automatic reconciliation: If assessment exists in DB or was completed, permanently preserve it!
+        if (latestAssessment) {
+          existingUser.assessmentCompleted = true;
+          existingUser.englishLevel = latestAssessment.level;
+          existingUser.overallScore = latestAssessment.overallScore || existingUser.overallScore;
+        } else if (incomingCompleted && (!existingUser.assessmentCompleted || existingUser.englishLevel === 'Not Assessed')) {
+          existingUser.assessmentCompleted = true;
+          if (incomingLevel && incomingLevel !== 'Not Assessed') existingUser.englishLevel = incomingLevel;
+          if (incomingScore !== null) existingUser.overallScore = incomingScore;
+        }
+
         await existingUser.save();
         return successResponse(res, existingUser, 'User profile retrieved successfully', 200);
       }
+
+      // New user creation in MongoDB
+      const hasAssessment = Boolean(latestAssessment || incomingCompleted);
+      const startingLevel = latestAssessment?.level || (incomingCompleted ? incomingLevel : null) || 'Not Assessed';
+      const startingScore = latestAssessment?.overallScore || (incomingCompleted ? incomingScore : null) || 0;
 
       const newUser = new User({
         firebaseUid,
         email: email || `${firebaseUid}@english360.ai`,
         name,
         photoURL,
-        englishLevel,
-        overallScore: 0,
-        streak: 0,
+        englishLevel: startingLevel,
+        overallScore: startingScore,
+        streak: hasAssessment ? 1 : 0,
         dailyGoal: 20,
-        assessmentCompleted: false,
+        assessmentCompleted: hasAssessment,
       });
 
       const savedUser = await newUser.save();
@@ -51,9 +74,20 @@ export const syncUser = async (req, res) => {
     }
 
     // Fallback: In-memory store when DB connection is pending
+    const storedAssessment = assessmentStore.get(firebaseUid);
+    const hasStoredAssessment = Boolean(storedAssessment || incomingCompleted);
+    const resolvedLevel = storedAssessment?.level || (incomingCompleted ? incomingLevel : null) || 'Not Assessed';
+    const resolvedScore = storedAssessment?.overallScore || (incomingCompleted ? incomingScore : null) || 0;
+
     if (userStore.has(firebaseUid)) {
       const existing = userStore.get(firebaseUid);
       if (name && name !== 'Student') existing.name = name;
+      if (photoURL && !existing.photoURL) existing.photoURL = photoURL;
+      if (hasStoredAssessment && (!existing.assessmentCompleted || existing.englishLevel === 'Not Assessed')) {
+        existing.assessmentCompleted = true;
+        existing.englishLevel = resolvedLevel;
+        existing.overallScore = resolvedScore;
+      }
       return successResponse(res, existing, 'User profile retrieved successfully (Local Store)', 200);
     }
 
@@ -62,11 +96,11 @@ export const syncUser = async (req, res) => {
       email: email || `${firebaseUid}@english360.ai`,
       name,
       photoURL,
-      englishLevel,
-      overallScore: 0,
-      streak: 0,
+      englishLevel: resolvedLevel,
+      overallScore: resolvedScore,
+      streak: hasStoredAssessment ? 1 : 0,
       dailyGoal: 20,
-      assessmentCompleted: false,
+      assessmentCompleted: hasStoredAssessment,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -85,7 +119,9 @@ export const syncUser = async (req, res) => {
  */
 export const getMyProfile = async (req, res) => {
   try {
-    const firebaseUid = req.firebaseUid || req.user?.uid;
+    const firebaseUid = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
 
     if (!firebaseUid) {
       return errorResponse(res, 'Unauthenticated user.', 401);
@@ -93,6 +129,7 @@ export const getMyProfile = async (req, res) => {
 
     if (mongoose.connection.readyState === 1) {
       let user = await User.findOne({ firebaseUid });
+      const latestAssessment = await Assessment.findOne({ userId: firebaseUid }).sort({ createdAt: -1 });
 
       if (!user) {
         user = new User({
@@ -100,30 +137,46 @@ export const getMyProfile = async (req, res) => {
           email: req.user?.email || `${firebaseUid}@english360.ai`,
           name: req.user?.name || req.user?.displayName || 'Student',
           photoURL: req.user?.photoURL || '',
-          englishLevel: 'B1',
-          overallScore: 0,
-          streak: 0,
+          englishLevel: latestAssessment?.level || 'Not Assessed',
+          overallScore: latestAssessment?.overallScore || 0,
+          streak: latestAssessment ? 1 : 0,
           dailyGoal: 20,
-          assessmentCompleted: false,
+          assessmentCompleted: Boolean(latestAssessment),
         });
+        await user.save();
+      } else if (latestAssessment && (!user.assessmentCompleted || user.englishLevel === 'Not Assessed')) {
+        // Reconcile if assessment exists
+        user.assessmentCompleted = true;
+        user.englishLevel = latestAssessment.level;
+        user.overallScore = latestAssessment.overallScore || user.overallScore;
         await user.save();
       }
 
       return successResponse(res, user, 'Current user profile retrieved');
     }
 
-    // Fallback
-    const profile = inMemoryUsers.get(firebaseUid) || {
-      firebaseUid,
-      email: req.user?.email || `${firebaseUid}@english360.ai`,
-      name: req.user?.name || req.user?.displayName || 'Student',
-      photoURL: req.user?.photoURL || '',
-      englishLevel: 'B1',
-      overallScore: 0,
-      streak: 0,
-      dailyGoal: 20,
-      assessmentCompleted: false,
-    };
+    // Fallback: In-memory store
+    let profile = userStore.get(firebaseUid);
+    const storedAssessment = assessmentStore.get(firebaseUid);
+
+    if (!profile) {
+      profile = {
+        firebaseUid,
+        email: req.user?.email || `${firebaseUid}@english360.ai`,
+        name: req.user?.name || req.user?.displayName || 'Student',
+        photoURL: req.user?.photoURL || '',
+        englishLevel: storedAssessment?.level || 'Not Assessed',
+        overallScore: storedAssessment?.overallScore || 0,
+        streak: storedAssessment ? 1 : 0,
+        dailyGoal: 20,
+        assessmentCompleted: Boolean(storedAssessment),
+      };
+      userStore.set(firebaseUid, profile);
+    } else if (storedAssessment && (!profile.assessmentCompleted || profile.englishLevel === 'Not Assessed')) {
+      profile.assessmentCompleted = true;
+      profile.englishLevel = storedAssessment.level;
+      profile.overallScore = storedAssessment.overallScore || profile.overallScore;
+    }
 
     return successResponse(res, profile, 'Current user profile retrieved (Local Store)');
   } catch (error) {

@@ -5,7 +5,7 @@ import Mistake from '../models/Mistake.js';
 import Assessment from '../models/Assessment.js';
 import GrammarProgress from '../models/GrammarProgress.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
-import { userStore, getActivities, mistakeStore, getOrCreateUser } from '../utils/inMemoryStore.js';
+import { userStore, getActivities, mistakeStore, getOrCreateUser, assessmentStore } from '../utils/inMemoryStore.js';
 
 // Helper to calculate real streak based on distinct consecutive learning days
 const calculateStreak = (activities = []) => {
@@ -41,7 +41,9 @@ const calculateStreak = (activities = []) => {
 
 export const getStudentProgress = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid;
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
     if (!userId) {
       return errorResponse(res, 'Unauthorized', 401);
     }
@@ -50,10 +52,12 @@ export const getStudentProgress = async (req, res) => {
     let activities = [];
     let mistakesCount = 0;
     let grammarCount = 0;
+    let latestAssessment = null;
 
     if (mongoose.connection.readyState === 1) {
       try {
         user = await User.findOne({ firebaseUid: userId });
+        latestAssessment = await Assessment.findOne({ userId }).sort({ createdAt: -1 });
         activities = await LearningActivity.find({ userId }).sort({ createdAt: -1 });
         mistakesCount = await Mistake.countDocuments({ userId });
         grammarCount = await GrammarProgress.countDocuments({ userId, completed: true });
@@ -71,9 +75,34 @@ export const getStudentProgress = async (req, res) => {
       mistakesCount = (mistakeStore.get(userId) || []).length;
     }
 
+    const storedAssessment = assessmentStore.get(userId);
+    const resolvedAssessment = latestAssessment || storedAssessment;
+
+    // Automatic assessment reconciliation
+    if (resolvedAssessment && (!user.assessmentCompleted || user.englishLevel === 'Not Assessed')) {
+      user.assessmentCompleted = true;
+      user.englishLevel = resolvedAssessment.level;
+      user.overallScore = resolvedAssessment.overallScore || user.overallScore;
+
+      if (mongoose.connection.readyState === 1) {
+        try {
+          await User.updateOne(
+            { firebaseUid: userId },
+            {
+              $set: {
+                assessmentCompleted: true,
+                englishLevel: resolvedAssessment.level,
+                overallScore: user.overallScore,
+              },
+            }
+          );
+        } catch (e) {}
+      }
+    }
+
     const level = user?.englishLevel || 'Not Assessed';
     const overallScore = user?.overallScore || 0;
-    const assessmentCompleted = Boolean(user?.assessmentCompleted);
+    const assessmentCompleted = Boolean(user?.assessmentCompleted || resolvedAssessment);
     const streak = calculateStreak(activities);
 
     const lessonsCompleted = activities.length;
@@ -113,17 +142,21 @@ export const getStudentProgress = async (req, res) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid;
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
     if (!userId) {
       return errorResponse(res, 'Unauthorized', 401);
     }
 
     let user = null;
     let activities = [];
+    let latestAssessment = null;
 
     if (mongoose.connection.readyState === 1) {
       try {
         user = await User.findOne({ firebaseUid: userId });
+        latestAssessment = await Assessment.findOne({ userId }).sort({ createdAt: -1 });
         activities = await LearningActivity.find({ userId }).sort({ createdAt: -1 });
       } catch (e) {
         console.warn('[ProgressController] DB fetch notice:', e.message);
@@ -138,11 +171,36 @@ export const getDashboardSummary = async (req, res) => {
       activities = getActivities(userId);
     }
 
+    const storedAssessment = assessmentStore.get(userId);
+    const resolvedAssessment = latestAssessment || storedAssessment;
+
+    // Automatic assessment reconciliation
+    if (resolvedAssessment && (!user.assessmentCompleted || user.englishLevel === 'Not Assessed')) {
+      user.assessmentCompleted = true;
+      user.englishLevel = resolvedAssessment.level;
+      user.overallScore = resolvedAssessment.overallScore || user.overallScore;
+
+      if (mongoose.connection.readyState === 1) {
+        try {
+          await User.updateOne(
+            { firebaseUid: userId },
+            {
+              $set: {
+                assessmentCompleted: true,
+                englishLevel: resolvedAssessment.level,
+                overallScore: user.overallScore,
+              },
+            }
+          );
+        } catch (e) {}
+      }
+    }
+
     const streak = calculateStreak(activities);
     const userName = user?.name || req.user?.name || req.user?.displayName || 'Student';
     const englishLevel = user?.englishLevel || 'Not Assessed';
     const overallScore = user?.overallScore || 0;
-    const assessmentCompleted = Boolean(user?.assessmentCompleted);
+    const assessmentCompleted = Boolean(user?.assessmentCompleted || resolvedAssessment);
 
     return successResponse(
       res,
@@ -172,3 +230,4 @@ export const getDashboardSummary = async (req, res) => {
     return errorResponse(res, error.message, 500);
   }
 };
+

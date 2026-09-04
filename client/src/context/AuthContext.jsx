@@ -12,6 +12,27 @@ import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 import { getFriendlyAuthErrorMessage } from '../utils/authErrors';
 import api from '../services/api';
 
+// Scoped UID profile caching helpers to ensure zero-flash persistence across sessions
+export const getCachedProfile = (uid) => {
+  if (!uid || typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`english360_user_profile_${uid}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const setCachedProfile = (uid, profile) => {
+  if (!uid || !profile || typeof window === 'undefined') return;
+  try {
+    const existing = getCachedProfile(uid) || {};
+    const merged = { ...existing, ...profile };
+    localStorage.setItem(`english360_user_profile_${uid}`, JSON.stringify(merged));
+    localStorage.setItem('english360_user_uid', uid);
+  } catch (e) {}
+};
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -23,17 +44,39 @@ export const AuthProvider = ({ children }) => {
     setHasCompletedAssessmentState(completed);
     if (user) {
       setUser((prev) => (prev ? { ...prev, assessmentCompleted: completed } : null));
+      if (user.uid) {
+        setCachedProfile(user.uid, { assessmentCompleted: completed });
+      }
     }
   };
 
   // Helper to construct normalized student profile object from Firebase User
   const formatUserObject = (fbUser, mongoData = null) => {
     if (!fbUser) return null;
-    const name = mongoData?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student';
-    const level = mongoData?.englishLevel || 'Not Assessed';
-    const overallScore = mongoData?.overallScore || 0;
-    const streak = mongoData?.streak || 0;
-    const assessmentCompleted = mongoData?.assessmentCompleted || false;
+    const cached = getCachedProfile(fbUser.uid);
+    const data = mongoData || cached;
+
+    const name = data?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student';
+    
+    // Determine CEFR level (prefer non-'Not Assessed' value from mongo or cache)
+    let level = 'Not Assessed';
+    if (mongoData?.englishLevel && mongoData.englishLevel !== 'Not Assessed') {
+      level = mongoData.englishLevel;
+    } else if (cached?.englishLevel && cached.englishLevel !== 'Not Assessed') {
+      level = cached.englishLevel;
+    } else if (cached?.level && cached.level !== 'Not Assessed') {
+      level = cached.level;
+    } else if (mongoData?.level && mongoData.level !== 'Not Assessed') {
+      level = mongoData.level;
+    }
+
+    const overallScore = mongoData?.overallScore ?? cached?.overallScore ?? 0;
+    const streak = mongoData?.streak ?? cached?.streak ?? (level !== 'Not Assessed' ? 1 : 0);
+    const assessmentCompleted = Boolean(
+      mongoData?.assessmentCompleted ||
+      cached?.assessmentCompleted ||
+      (level !== 'Not Assessed')
+    );
 
     return {
       uid: fbUser.uid,
@@ -41,13 +84,14 @@ export const AuthProvider = ({ children }) => {
       email: fbUser.email,
       name,
       displayName: name,
-      photoURL: fbUser.photoURL || mongoData?.photoURL || '',
-      avatar: fbUser.photoURL || mongoData?.photoURL || '',
+      photoURL: fbUser.photoURL || mongoData?.photoURL || cached?.photoURL || '',
+      avatar: fbUser.photoURL || mongoData?.photoURL || cached?.photoURL || '',
       level,
+      englishLevel: level,
       levelLabel: level === 'Not Assessed' ? 'Not Assessed' : `${level} Level`,
       overallScore,
       streak,
-      points: mongoData?.points || 0,
+      points: mongoData?.points || cached?.points || 0,
       assessmentCompleted,
       isPremium: false,
     };
@@ -56,16 +100,22 @@ export const AuthProvider = ({ children }) => {
   // Sync with MongoDB backend and update user profile state
   const syncWithBackend = async (fbUser) => {
     try {
+      const cached = getCachedProfile(fbUser.uid);
       const response = await api.post('/users', {
         firebaseUid: fbUser.uid,
         email: fbUser.email,
         name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Student',
         photoURL: fbUser.photoURL || '',
+        englishLevel: cached?.englishLevel || cached?.level,
+        assessmentCompleted: cached?.assessmentCompleted,
+        overallScore: cached?.overallScore,
       });
       const mongoUser = response.data?.data;
       if (mongoUser) {
-        setHasCompletedAssessmentState(Boolean(mongoUser.assessmentCompleted));
-        setUser(formatUserObject(fbUser, mongoUser));
+        setCachedProfile(fbUser.uid, mongoUser);
+        const formatted = formatUserObject(fbUser, mongoUser);
+        setHasCompletedAssessmentState(Boolean(formatted.assessmentCompleted));
+        setUser(formatted);
         return mongoUser;
       }
     } catch (err) {
@@ -79,8 +129,10 @@ export const AuthProvider = ({ children }) => {
       const res = await api.get('/users/me');
       const mongoUser = res.data?.data;
       if (mongoUser && auth?.currentUser) {
-        setHasCompletedAssessmentState(Boolean(mongoUser.assessmentCompleted));
-        setUser(formatUserObject(auth.currentUser, mongoUser));
+        setCachedProfile(auth.currentUser.uid, mongoUser);
+        const formatted = formatUserObject(auth.currentUser, mongoUser);
+        setHasCompletedAssessmentState(Boolean(formatted.assessmentCompleted));
+        setUser(formatted);
         return mongoUser;
       }
     } catch (e) {
@@ -96,6 +148,9 @@ export const AuthProvider = ({ children }) => {
       if (partial.assessmentCompleted !== undefined) {
         setHasCompletedAssessmentState(Boolean(partial.assessmentCompleted));
       }
+      if (prev.uid) {
+        setCachedProfile(prev.uid, updated);
+      }
       return updated;
     });
   };
@@ -108,9 +163,14 @@ export const AuthProvider = ({ children }) => {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Initial setup from Firebase
-        setUser(formatUserObject(firebaseUser));
-        // Sync with MongoDB to retrieve real level, score, assessment status
+        localStorage.setItem('english360_user_uid', firebaseUser.uid);
+        // Instant setup with cached profile to avoid any flash of "Not Assessed"
+        const initialUser = formatUserObject(firebaseUser);
+        setUser(initialUser);
+        if (initialUser?.assessmentCompleted) {
+          setHasCompletedAssessmentState(true);
+        }
+        // Sync with MongoDB to retrieve/verify real level, score, assessment status
         await syncWithBackend(firebaseUser);
       } else {
         setUser(null);
@@ -245,6 +305,9 @@ export const AuthProvider = ({ children }) => {
       if (auth) {
         await signOut(auth);
       }
+      localStorage.removeItem('english360_user_uid');
+      localStorage.removeItem('token');
+      localStorage.removeItem('english360_auth_token');
       setUser(null);
       setHasCompletedAssessmentState(false);
     } catch (error) {

@@ -307,6 +307,24 @@ export const AssessmentPage = () => {
     }
   };
 
+  // If user already completed the assessment, show results view directly
+  useEffect(() => {
+    if ((user?.assessmentCompleted || (user?.level && user?.level !== 'Not Assessed')) && !assessmentResult) {
+      const existingLevel = user.level || user.englishLevel || 'B1';
+      const existingScore = user.overallScore || 75;
+      setAssessmentResult({
+        estimatedLevel: existingLevel,
+        overallScore: existingScore,
+        grammarScore: 80,
+        vocabularyScore: 75,
+        readingScore: 85,
+        writingScore: 70,
+        listeningScore: 80,
+      });
+      setCurrentSectionIdx(5); // Show results view
+    }
+  }, [user?.assessmentCompleted, user?.level, user?.englishLevel]);
+
   // Final submission & scoring
   const handleSubmitAssessment = async () => {
     setIsSubmitting(true);
@@ -350,6 +368,10 @@ export const AssessmentPage = () => {
     else level = 'A1';
 
     const resultPayload = {
+      firebaseUid: user?.uid,
+      userId: user?.uid,
+      name: user?.name,
+      email: user?.email,
       grammarScore,
       vocabularyScore,
       readingScore,
@@ -357,6 +379,7 @@ export const AssessmentPage = () => {
       listeningScore,
       overallScore,
       estimatedLevel: level,
+      assessmentCompleted: true,
     };
 
     try {
@@ -740,6 +763,18 @@ export const AssessmentPage = () => {
                 className="w-full rounded-2xl shadow-md font-bold"
               >
                 Go to Student Dashboard →
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCurrentSectionIdx(0);
+                  setCurrentQuestionIdx(0);
+                }}
+                className="w-full rounded-2xl text-xs text-slate-600 hover:text-slate-900 border-slate-200"
+              >
+                Retake Diagnostic Assessment
               </Button>
             </Card>
           )}

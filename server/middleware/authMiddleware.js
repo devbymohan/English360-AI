@@ -7,19 +7,21 @@ import { errorResponse } from '../utils/responseHandler.js';
  */
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
+  const headerUid = req.headers['x-firebase-uid'] || req.headers['x-user-id'] || null;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Graceful guest student fallback for educational content access
-    req.user = { uid: 'usr_guest_student', email: 'guest@english360.ai', name: 'Student' };
-    req.firebaseUid = 'usr_guest_student';
+    const effectiveUid = headerUid && headerUid !== 'usr_guest_student' ? headerUid : 'usr_guest_student';
+    req.user = { uid: effectiveUid, email: `${effectiveUid}@english360.ai`, name: 'Student' };
+    req.firebaseUid = effectiveUid;
     return next();
   }
 
   const token = authHeader.split('Bearer ')[1]?.trim();
 
-  if (!token) {
-    req.user = { uid: 'usr_guest_student', email: 'guest@english360.ai', name: 'Student' };
-    req.firebaseUid = 'usr_guest_student';
+  if (!token || token === 'usr_guest_student') {
+    const effectiveUid = headerUid && headerUid !== 'usr_guest_student' ? headerUid : 'usr_guest_student';
+    req.user = { uid: effectiveUid, email: `${effectiveUid}@english360.ai`, name: 'Student' };
+    req.firebaseUid = effectiveUid;
     return next();
   }
 
@@ -50,18 +52,20 @@ export const requireAuth = async (req, res, next) => {
     }
 
     // 3. If raw string UID or fallback token
-    if (typeof token === 'string' && token.length > 0) {
+    if (typeof token === 'string' && token.length > 0 && token !== 'usr_guest_student') {
       req.user = { uid: token, email: `${token}@english360.ai`, name: 'Student' };
       req.firebaseUid = token;
       return next();
     }
 
-    req.user = { uid: 'usr_guest_student', email: 'guest@english360.ai', name: 'Student' };
-    req.firebaseUid = 'usr_guest_student';
+    const fallbackUid = headerUid && headerUid !== 'usr_guest_student' ? headerUid : 'usr_guest_student';
+    req.user = { uid: fallbackUid, email: `${fallbackUid}@english360.ai`, name: 'Student' };
+    req.firebaseUid = fallbackUid;
     return next();
   } catch (error) {
-    req.user = { uid: 'usr_guest_student', email: 'guest@english360.ai', name: 'Student' };
-    req.firebaseUid = 'usr_guest_student';
+    const fallbackUid = headerUid && headerUid !== 'usr_guest_student' ? headerUid : 'usr_guest_student';
+    req.user = { uid: fallbackUid, email: `${fallbackUid}@english360.ai`, name: 'Student' };
+    req.firebaseUid = fallbackUid;
     return next();
   }
 };
@@ -71,14 +75,19 @@ function decodeJwt(token) {
   try {
     const parts = token.split('.');
     if (parts.length < 2) {
-      // If token is a raw string UID (e.g. test token "usr_test_123" or "user_123")
       if (token.startsWith('usr_') || token.startsWith('user_') || token.startsWith('mock_') || token.length >= 6) {
         return { uid: token, email: `${token}@english360.ai`, name: 'Test Student' };
       }
       return null;
     }
-    const payload = Buffer.from(parts[1], 'base64').toString('utf8');
-    return JSON.parse(payload);
+    // Try base64url first (RFC 7519), then standard base64
+    let payloadStr;
+    try {
+      payloadStr = Buffer.from(parts[1], 'base64url').toString('utf8');
+    } catch (e) {
+      payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
+    }
+    return JSON.parse(payloadStr);
   } catch (e) {
     return null;
   }

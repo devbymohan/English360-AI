@@ -43,6 +43,7 @@ api.interceptors.request.use(
     config.baseURL = getBaseURL();
     try {
       if (auth && auth.currentUser) {
+        config.headers['X-Firebase-UID'] = auth.currentUser.uid;
         const token = await auth.currentUser.getIdToken(false);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -51,10 +52,15 @@ api.interceptors.request.use(
       }
 
       // Fallback token from localStorage
+      const storedUid = localStorage.getItem('english360_user_uid');
+      if (storedUid) {
+        config.headers['X-Firebase-UID'] = storedUid;
+      }
+
       const storedToken =
         localStorage.getItem('token') ||
         localStorage.getItem('english360_auth_token') ||
-        localStorage.getItem('english360_user_uid');
+        storedUid;
 
       if (storedToken) {
         config.headers.Authorization = `Bearer ${storedToken}`;
