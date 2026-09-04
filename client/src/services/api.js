@@ -1,17 +1,32 @@
 import axios from 'axios';
 import { auth } from '../config/firebase';
 
-const getBaseURL = () => {
+export const getBaseURL = () => {
+  if (typeof window !== 'undefined') {
+    const customUrl = localStorage.getItem('ENGLISH360_API_URL');
+    if (customUrl && customUrl.trim()) {
+      const trimmed = customUrl.trim();
+      return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+    }
+  }
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && envUrl.trim()) {
-    // Ensure trailing slash isn't doubled
     return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
   }
-  // If running in browser on production (e.g. Vercel) without env var, warn and try relative
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return '/api';
   }
   return 'http://localhost:5000/api';
+};
+
+export const setCustomApiUrl = (url) => {
+  if (typeof window !== 'undefined') {
+    if (url) {
+      localStorage.setItem('ENGLISH360_API_URL', url.trim());
+    } else {
+      localStorage.removeItem('ENGLISH360_API_URL');
+    }
+  }
 };
 
 const api = axios.create({
@@ -25,6 +40,7 @@ const api = axios.create({
 // Central Request Interceptor: Automatically attach Firebase ID token or student token
 api.interceptors.request.use(
   async (config) => {
+    config.baseURL = getBaseURL();
     try {
       if (auth && auth.currentUser) {
         const token = await auth.currentUser.getIdToken(false);

@@ -23,6 +23,63 @@ export const AICoachPage = () => {
     'How to expand active vocabulary',
   ]);
 
+  const generateSmartCoachReply = (text, studentName = 'Student') => {
+    const q = text.trim().toLowerCase();
+
+    if (/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening)|howdy)\b/.test(q)) {
+      return {
+        reply: `Hello ${studentName}! 👋 I am your English360 AI Personal Coach. What would you like to focus on today? We can master challenging grammar concepts, polish your essay writing, or boost your active vocabulary.`,
+        suggestedActions: [
+          'Explain Present Perfect vs Past Simple',
+          'Tips for writing strong essays',
+          'How to expand active vocabulary',
+        ],
+      };
+    }
+
+    if (q.includes('present perfect') || q.includes('past simple') || (q.includes('difference') && q.includes('past'))) {
+      return {
+        reply: `Great question! Here is how to distinguish **Present Perfect** from **Past Simple**:\n\n• **Past Simple** refers to completed past events with a specific, finished time marker:\n  *Example:* "I visited Kyoto **last year**."\n\n• **Present Perfect (have/has + past participle)** connects the past to the present moment, focusing on life experiences or results:\n  *Example:* "I **have visited** Kyoto three times." *(still true in my lifetime)*\n\n💡 **Quick Quiz:** How would you complete: *"She ________ (already / finalize) the design proposal"*?`,
+        suggestedActions: [
+          'She has already finalized',
+          'Give me another practice sentence',
+          'Explain Conditionals',
+        ],
+      };
+    }
+
+    if (q.includes('writing') || q.includes('essay') || q.includes('paragraph') || q.includes('structure')) {
+      return {
+        reply: `To write clear, cohesive English essays that score high on Task Achievement:\n\n1. **Direct Thesis Statement:** Answer the exact prompt in your introduction.\n2. **The PEEL Method for Body Paragraphs:**\n   • **Point:** State the main argument.\n   • **Explanation:** Clarify your reasoning.\n   • **Evidence/Example:** Provide a concrete illustration.\n   • **Link:** Reconnect to the central thesis.\n3. **Cohesive Devices:** Use transitional adverbs such as *Furthermore*, *Consequently*, and *Conversely*.\n\nWould you like feedback on an essay draft in the Writing module?`,
+        suggestedActions: [
+          'How to write a strong introduction',
+          'Useful transition words for essays',
+          'Practice writing an essay now',
+        ],
+      };
+    }
+
+    if (q.includes('vocabulary') || q.includes('words') || q.includes('remember') || q.includes('memorize')) {
+      return {
+        reply: `To convert passive words into fluent **active vocabulary**:\n\n1. **Study in Collocations:** Never learn isolated words; learn the whole phrase (e.g. *"make a decision"*, not just *"decision"*).\n2. **Immediate Production:** Compose an original sentence using the new word within 10 minutes of reading it.\n3. **Spaced Retrieval:** Test yourself using our Vocabulary Quiz tab 24 hours later.\n\nWhich CEFR level or topic words would you like to practice today?`,
+        suggestedActions: [
+          'Give me 3 advanced academic words',
+          'Common business collocations',
+          'Take a quick vocabulary quiz',
+        ],
+      };
+    }
+
+    return {
+      reply: `That is an interesting topic! When learning English, regular practice and active application are key. Try using this concept in a complete sentence, or let me know if you would like me to break down the grammar, give you examples, or quiz you on it.`,
+      suggestedActions: [
+        'Explain Present Perfect vs Past Simple',
+        'Tips for writing strong essays',
+        'How to expand active vocabulary',
+      ],
+    };
+  };
+
   const handleSendMessage = async (textToSend) => {
     const text = textToSend || inputText;
     if (!text.trim() || isSending) return;
@@ -43,16 +100,27 @@ export const AICoachPage = () => {
         if (response.suggestedActions) {
           setSuggestedActions(response.suggestedActions);
         }
+      } else {
+        const studentName = user?.name || user?.displayName || 'Student';
+        const smartFallback = generateSmartCoachReply(text, studentName);
+        setMessages((prev) => [
+          ...prev,
+          { sender: 'coach', text: smartFallback.reply, time: 'Now' },
+        ]);
+        if (smartFallback.suggestedActions) {
+          setSuggestedActions(smartFallback.suggestedActions);
+        }
       }
     } catch (err) {
+      const studentName = user?.name || user?.displayName || 'Student';
+      const smartFallback = generateSmartCoachReply(text, studentName);
       setMessages((prev) => [
         ...prev,
-        {
-          sender: 'coach',
-          text: "I'm having a brief connection delay. Let me know what rule or topic you'd like to practice!",
-          time: 'Now',
-        },
+        { sender: 'coach', text: smartFallback.reply, time: 'Now' },
       ]);
+      if (smartFallback.suggestedActions) {
+        setSuggestedActions(smartFallback.suggestedActions);
+      }
     } finally {
       setIsSending(false);
     }

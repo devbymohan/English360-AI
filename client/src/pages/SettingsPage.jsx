@@ -5,7 +5,8 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import api, { getBaseURL, setCustomApiUrl } from '../services/api';
+import axios from 'axios';
 
 export const SettingsPage = () => {
   const { currentUser } = useAuth();
@@ -15,6 +16,51 @@ export const SettingsPage = () => {
   const [dailyGoal, setDailyGoal] = useState('20');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Cloud Backend Manager State
+  const [apiUrlInput, setApiUrlInput] = useState(() => getBaseURL());
+  const [isTestingApi, setIsTestingApi] = useState(false);
+  const [apiStatus, setApiStatus] = useState('idle');
+  const [apiStatusMsg, setApiStatusMsg] = useState('');
+
+  const handleTestApi = async () => {
+    setIsTestingApi(true);
+    setApiStatusMsg('Pinging backend service...');
+    setApiStatus('testing');
+
+    const targetUrl = apiUrlInput.trim().replace(/\/+$/, '');
+    const pingEndpoint = targetUrl.endsWith('/api') ? `${targetUrl}/health` : `${targetUrl}/api/health`;
+
+    try {
+      const res = await axios.get(pingEndpoint, { timeout: 15000 });
+      if (res.status === 200) {
+        setApiStatus('connected');
+        setApiStatusMsg('Connected successfully to English360 AI Backend!');
+      } else {
+        setApiStatus('error');
+        setApiStatusMsg(`Backend responded with status code: ${res.status}`);
+      }
+    } catch (err) {
+      setApiStatus('error');
+      setApiStatusMsg(
+        err.response?.status
+          ? `Backend error (${err.response.status}). Check URL path.`
+          : 'Could not connect. Ensure Render service is awake.'
+      );
+    } finally {
+      setIsTestingApi(false);
+    }
+  };
+
+  const handleSaveApiUrl = () => {
+    const cleanUrl = apiUrlInput.trim().replace(/\/+$/, '');
+    setCustomApiUrl(cleanUrl);
+    setApiStatus('connected');
+    setApiStatusMsg('API URL saved to browser! Reloading...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -134,6 +180,71 @@ export const SettingsPage = () => {
 
         {/* Right: Security & App Info */}
         <div className="lg:col-span-4 space-y-6">
+          {/* Backend AI Connection Manager */}
+          <Card className="p-5 space-y-3.5 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/30 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-900">Cloud AI Backend</h4>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  apiStatus === 'connected'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : apiStatus === 'error'
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {apiStatus === 'connected' ? 'Connected' : apiStatus === 'error' ? 'Offline' : 'Active'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Connect your Render backend web service to activate live English360 AI generation.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                Backend API URL
+              </label>
+              <input
+                type="text"
+                value={apiUrlInput}
+                onChange={(e) => setApiUrlInput(e.target.value)}
+                placeholder="https://your-app.onrender.com/api"
+                className="w-full text-xs font-mono bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {apiStatusMsg && (
+              <p
+                className={`text-[11px] font-semibold ${
+                  apiStatus === 'connected' ? 'text-emerald-700' : 'text-rose-600'
+                }`}
+              >
+                {apiStatusMsg}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isTestingApi}
+                onClick={handleTestApi}
+                className="text-xs w-1/2 rounded-xl"
+              >
+                {isTestingApi ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Test Ping'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveApiUrl}
+                className="text-xs w-1/2 rounded-xl"
+              >
+                Save &amp; Link
+              </Button>
+            </div>
+          </Card>
+
           <Card className="p-5 space-y-3">
             <h4 className="text-xs font-bold text-slate-900">Account Security</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
