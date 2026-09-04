@@ -27,8 +27,23 @@ export const RegisterPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { register, googleLogin } = useAuth();
+  const { register, googleLogin, user, redirectError, clearRedirectError } = useAuth();
   const navigate = useNavigate();
+
+  // Auto-navigate when user is authenticated (including after mobile redirect returns)
+  useEffect(() => {
+    if (user) {
+      const target = user.assessmentCompleted ? '/dashboard' : '/assessment';
+      navigate(target, { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Capture any mobile redirect error
+  useEffect(() => {
+    if (redirectError) {
+      setError(redirectError);
+    }
+  }, [redirectError]);
 
   const validateForm = () => {
     if (!name.trim()) {
@@ -79,13 +94,18 @@ export const RegisterPage = () => {
 
   const handleGoogleSignIn = async () => {
     setError('');
+    if (clearRedirectError) clearRedirectError();
     setLoading(true);
     try {
-      await googleLogin();
-      navigate('/assessment');
+      const res = await googleLogin();
+      if (res?.redirecting) {
+        // Mobile redirect in progress
+        return;
+      }
+      const target = user?.assessmentCompleted ? '/dashboard' : '/assessment';
+      navigate(target, { replace: true });
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

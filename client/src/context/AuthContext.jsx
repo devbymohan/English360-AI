@@ -3,6 +3,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   sendPasswordResetEmail,
   updateProfile,
@@ -10,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 import { getFriendlyAuthErrorMessage } from '../utils/authErrors';
+import { isMobileBrowser, isInAppBrowser } from '../utils/browserDetection';
 import api from '../services/api';
 
 // Scoped UID profile caching helpers to ensure zero-flash persistence across sessions
@@ -38,6 +41,7 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [redirectError, setRedirectError] = useState('');
   const [hasCompletedAssessment, setHasCompletedAssessmentState] = useState(false);
 
   const setHasCompletedAssessment = (completed) => {
@@ -163,7 +167,33 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    let isMounted = true;
+
+    // Capture redirect sign-in result (essential for mobile Google authentication)
+    if (isFirebaseConfigured) {
+      getRedirectResult(auth)
+        .then(async (result) => {
+          if (!isMounted) return;
+          if (result && result.user) {
+            localStorage.setItem('english360_user_uid', result.user.uid);
+            const formatted = formatUserObject(result.user);
+            setUser(formatted);
+            if (formatted?.assessmentCompleted) {
+              setHasCompletedAssessmentState(true);
+            }
+            await syncWithBackend(result.user);
+          }
+        })
+        .catch((error) => {
+          if (!isMounted) return;
+          console.warn('[AuthContext] getRedirectResult notice:', error.code, error.message);
+          const friendlyMessage = getFriendlyAuthErrorMessage(error);
+          setRedirectError(friendlyMessage);
+        });
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) return;
       if (firebaseUser) {
         localStorage.setItem('english360_user_uid', firebaseUser.uid);
         // Instant setup with cached profile to avoid any flash of "Not Assessed"
@@ -181,7 +211,10 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // 1. Register with Email & Password
@@ -262,16 +295,56 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 3. Google Sign-In
+  // 3. Google Sign-In with Mobile Redirect & Desktop Popup Support
   const googleLogin = async () => {
     setLoading(true);
+    setRedirectError('');
     try {
       if (isFirebaseConfigured && auth && googleProvider) {
-        const result = await signInWithPopup(auth, googleProvider);
-        const formatted = formatUserObject(result.user);
-        setUser(formatted);
-        const mongoUser = await syncWithBackend(result.user);
-        return { success: true, user: formatted, mongoUser };
+        if (isInAppBrowser()) {
+          throw new Error(
+            'Google Sign-In cannot open inside in-app browsers (e.g. WhatsApp, Instagram, Telegram). Please tap the menu (⋮ or •••) in the corner and choose "Open in Chrome" or "Open in Safari".'
+          );
+        }
+
+        const isMobile = isMobileBrowser();
+
+        if (isMobile) {
+          // On mobile devices, signInWithRedirect avoids popup blocker suppression and tab-freeze on iOS/Android
+          try {
+            await signInWithRedirect(auth, googleProvider);
+            return { redirecting: true };
+          } catch (redirectErr) {
+            console.warn('[AuthContext] Mobile redirect failed, attempting popup fallback:', redirectErr.message);
+            const result = await signInWithPopup(auth, googleProvider);
+            const formatted = formatUserObject(result.user);
+            setUser(formatted);
+            const mongoUser = await syncWithBackend(result.user);
+            return { success: true, user: formatted, mongoUser };
+          }
+        } else {
+          // On desktop, use popup for immediate authentication without page reload
+          try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const formatted = formatUserObject(result.user);
+            setUser(formatted);
+            const mongoUser = await syncWithBackend(result.user);
+            return { success: true, user: formatted, mongoUser };
+          } catch (popupErr) {
+            // If desktop browser blocked popup (e.g. Brave, AdBlock, strict privacy), fallback to redirect
+            const popupBlockedCodes = [
+              'auth/popup-blocked',
+              'auth/popup-closed-by-user',
+              'auth/cancelled-popup-request',
+            ];
+            if (popupBlockedCodes.includes(popupErr.code) || popupErr.message?.toLowerCase().includes('popup')) {
+              console.log('[AuthContext] Desktop popup blocked, redirecting to Google sign-in...');
+              await signInWithRedirect(auth, googleProvider);
+              return { redirecting: true };
+            }
+            throw popupErr;
+          }
+        }
       } else {
         const fallbackUser = {
           uid: 'usr_google_' + Date.now(),
@@ -296,7 +369,9 @@ export const AuthProvider = ({ children }) => {
       const friendlyMessage = getFriendlyAuthErrorMessage(error);
       throw new Error(friendlyMessage);
     } finally {
-      setLoading(false);
+      if (!isMobileBrowser()) {
+        setLoading(false);
+      }
     }
   };
 
@@ -348,6 +423,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     isFirebaseConfigured,
+    redirectError,
+    clearRedirectError: () => setRedirectError(''),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

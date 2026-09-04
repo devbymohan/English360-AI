@@ -33,9 +33,27 @@ export const LoginPage = () => {
   const [resetErrorMsg, setResetErrorMsg] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
-  const { login, googleLogin, resetPassword } = useAuth();
+  const { login, googleLogin, resetPassword, user, redirectError, clearRedirectError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Auto-navigate when user is authenticated (including after mobile redirect returns)
+  useEffect(() => {
+    if (user) {
+      const target =
+        location.state?.from?.pathname && location.state.from.pathname !== '/assessment'
+          ? location.state.from.pathname
+          : '/dashboard';
+      navigate(target, { replace: true });
+    }
+  }, [user, navigate, location.state]);
+
+  // Capture any mobile redirect error
+  useEffect(() => {
+    if (redirectError) {
+      setError(redirectError);
+    }
+  }, [redirectError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,9 +82,14 @@ export const LoginPage = () => {
 
   const handleGoogleSignIn = async () => {
     setError('');
+    if (clearRedirectError) clearRedirectError();
     setLoading(true);
     try {
-      await googleLogin();
+      const res = await googleLogin();
+      if (res?.redirecting) {
+        // Mobile redirect in progress
+        return;
+      }
       // Already registered users logging in via Google go directly to Dashboard
       const target =
         location.state?.from?.pathname && location.state.from.pathname !== '/assessment'
@@ -75,7 +98,6 @@ export const LoginPage = () => {
       navigate(target, { replace: true });
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
