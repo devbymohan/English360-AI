@@ -54,10 +54,11 @@ export const DashboardPage = () => {
 
       if (summary.status === 'fulfilled' && summary.value) {
         setDashboardData(summary.value);
-        if (summary.value.user && updateUserState) {
+        if (updateUserState) {
           updateUserState({
-            ...summary.value.user,
-            level: summary.value.user.englishLevel,
+            ...(summary.value.user || {}),
+            level: summary.value.user?.englishLevel || user?.level,
+            streak: summary.value.streak ?? summary.value.user?.streak ?? 0,
           });
         }
       }

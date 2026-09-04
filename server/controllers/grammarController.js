@@ -13,6 +13,7 @@ import {
   resetGrammarProgressLocal,
   addNotificationLocal,
 } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 const CANONICAL_GRAMMAR_TOPICS = [
   'Present Simple',
@@ -104,7 +105,9 @@ export const getGrammarLesson = async (req, res) => {
 
 export const submitGrammarExercise = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid || 'guest';
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.body?.firebaseUid || req.body?.userId || req.headers?.['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
     const {
       topic = 'Present Simple',
       level = 'B1',
@@ -140,32 +143,32 @@ export const submitGrammarExercise = async (req, res) => {
             userId,
             category: 'Grammar',
             topic: canonicalTopic,
-            question: q.sentence || q.prompt,
+            question: q.prompt,
             userAnswer: studentAns,
             correctAnswer: q.correctAnswer,
-            explanation: q.explanation || 'Review grammar rules for this question.',
-            source: 'Grammar Practice',
+            explanation: q.explanation || 'Review the grammar rule and example.',
+            source: `${canonicalTopic} Practice`,
             reviewed: false,
           });
         }
 
         newQuestionAttempts.push({
-          sessionId: activeSessionId,
           questionId: qId,
-          question: q.sentence || q.prompt,
-          selectedAnswer: studentAns,
+          question: q.prompt,
+          userAnswer: studentAns,
           correctAnswer: q.correctAnswer,
           isCorrect,
+          topic: canonicalTopic,
+          sessionId: activeSessionId,
           attemptedAt: new Date(),
         });
       }
     });
 
-    const totalQuestions = questions.length || 5;
+    const totalQuestions = questions.length || 1;
     const score = Math.round((correctCount / totalQuestions) * 100);
 
-    // Save to local in-memory store (scoped by userId with deduplication)
-    addGrammarProgressLocal(userId, canonicalTopic, score, newQuestionAttempts);
+    // Sync in-memory store
     if (mistakeDocs.length > 0) {
       addMistakes(userId, mistakeDocs);
     }
@@ -174,6 +177,8 @@ export const submitGrammarExercise = async (req, res) => {
       type: 'grammar',
       score: `${score}%`,
     });
+    addGrammarProgressLocal(userId, canonicalTopic, score, newQuestionAttempts);
+
     addNotificationLocal(userId, {
       title: 'Grammar Practice Complete',
       message: `${canonicalTopic} exercise completed with ${score}% accuracy (${correctCount}/${totalQuestions} correct).`,
@@ -248,6 +253,9 @@ export const submitGrammarExercise = async (req, res) => {
 
     const { overallPerformance, topicBreakdown, completedTopics } = computeGrammarStats(allUserRecords);
 
+    const timeZone = req.headers?.['x-timezone'] || req.body?.timezone || 'UTC';
+    const streak = await calculateAndPersistUserStreak(userId, timeZone);
+
     return successResponse(
       res,
       {
@@ -261,6 +269,7 @@ export const submitGrammarExercise = async (req, res) => {
         overallPerformance,
         topicBreakdown,
         completedTopics,
+        streak,
       },
       'Grammar exercise submitted successfully'
     );

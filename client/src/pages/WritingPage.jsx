@@ -85,7 +85,7 @@ const getFallbackWritingEvaluation = (topicStr = '', essay = '') => {
 };
 
 export const WritingPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [topic, setTopic] = useState('The Impact of Technology on Students');
   const [essayContent, setEssayContent] = useState('');
   const [evaluation, setEvaluation] = useState(null);
@@ -110,6 +110,9 @@ export const WritingPage = () => {
       );
       if (result) {
         setEvaluation(result);
+        if (typeof result.streak === 'number' && updateUserState) {
+          updateUserState({ streak: result.streak });
+        }
       } else {
         setEvaluation(getFallbackWritingEvaluation(topic, essayContent));
       }

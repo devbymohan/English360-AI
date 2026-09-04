@@ -147,7 +147,7 @@ const getFallbackGrammarLesson = (topic = 'Present Simple', level = 'B1', sessio
 };
 
 export const GrammarPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [currentTopic, setCurrentTopic] = useState('Present Simple');
   const [lessonData, setLessonData] = useState(null);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -311,6 +311,10 @@ export const GrammarPage = () => {
       }
       if (result?.completedTopics) {
         setCompletedTopics(result.completedTopics);
+      }
+      if (typeof result?.streak === 'number') {
+        setUserStreak(result.streak);
+        if (updateUserState) updateUserState({ streak: result.streak });
       }
 
       setSubmissionResult(result);

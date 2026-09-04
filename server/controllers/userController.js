@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Assessment from '../models/Assessment.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 import { userStore, getOrCreateUser, assessmentStore } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 /**
  * POST /api/users
@@ -10,12 +11,13 @@ import { userStore, getOrCreateUser, assessmentStore } from '../utils/inMemorySt
  */
 export const syncUser = async (req, res) => {
   try {
+    const timeZone = req.headers?.['x-timezone'] || req.query?.timezone || 'UTC';
     const firebaseUid = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.body.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
-    const email = req.body.email || req.user?.email;
-    const name = req.body.name || req.user?.name || req.user?.displayName || 'Student';
-    const photoURL = req.body.photoURL || req.user?.photoURL || '';
+      : (req.body?.firebaseUid || req.headers?.['x-firebase-uid'] || req.user?.uid);
+    const email = req.body?.email || req.user?.email;
+    const name = req.body?.name || req.user?.name || req.user?.displayName || 'Student';
+    const photoURL = req.body?.photoURL || req.user?.photoURL || '';
     const incomingLevel = req.body.englishLevel || req.body.level || null;
     const incomingCompleted = req.body.assessmentCompleted === true;
     const incomingScore = typeof req.body.overallScore === 'number' ? req.body.overallScore : null;
@@ -23,6 +25,8 @@ export const syncUser = async (req, res) => {
     if (!firebaseUid) {
       return errorResponse(res, 'Firebase UID is required to sync user profile.', 400);
     }
+
+    const calculatedStreak = await calculateAndPersistUserStreak(firebaseUid, timeZone);
 
     // If MongoDB is connected, use real MongoDB collection
     if (mongoose.connection.readyState === 1) {
@@ -48,6 +52,7 @@ export const syncUser = async (req, res) => {
           if (incomingScore !== null) existingUser.overallScore = incomingScore;
         }
 
+        existingUser.streak = calculatedStreak;
         await existingUser.save();
         return successResponse(res, existingUser, 'User profile retrieved successfully', 200);
       }
@@ -64,7 +69,7 @@ export const syncUser = async (req, res) => {
         photoURL,
         englishLevel: startingLevel,
         overallScore: startingScore,
-        streak: hasAssessment ? 1 : 0,
+        streak: calculatedStreak,
         dailyGoal: 20,
         assessmentCompleted: hasAssessment,
       });
@@ -88,6 +93,7 @@ export const syncUser = async (req, res) => {
         existing.englishLevel = resolvedLevel;
         existing.overallScore = resolvedScore;
       }
+      existing.streak = calculatedStreak;
       return successResponse(res, existing, 'User profile retrieved successfully (Local Store)', 200);
     }
 
@@ -98,7 +104,7 @@ export const syncUser = async (req, res) => {
       photoURL,
       englishLevel: resolvedLevel,
       overallScore: resolvedScore,
-      streak: hasStoredAssessment ? 1 : 0,
+      streak: calculatedStreak,
       dailyGoal: 20,
       assessmentCompleted: hasStoredAssessment,
       createdAt: new Date().toISOString(),
@@ -119,13 +125,16 @@ export const syncUser = async (req, res) => {
  */
 export const getMyProfile = async (req, res) => {
   try {
+    const timeZone = req.headers?.['x-timezone'] || req.query?.timezone || 'UTC';
     const firebaseUid = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
+      : (req.query?.firebaseUid || req.headers?.['x-firebase-uid'] || req.user?.uid);
 
     if (!firebaseUid) {
       return errorResponse(res, 'Unauthenticated user.', 401);
     }
+
+    const calculatedStreak = await calculateAndPersistUserStreak(firebaseUid, timeZone);
 
     if (mongoose.connection.readyState === 1) {
       let user = await User.findOne({ firebaseUid });
@@ -139,16 +148,18 @@ export const getMyProfile = async (req, res) => {
           photoURL: req.user?.photoURL || '',
           englishLevel: latestAssessment?.level || 'Not Assessed',
           overallScore: latestAssessment?.overallScore || 0,
-          streak: latestAssessment ? 1 : 0,
+          streak: calculatedStreak,
           dailyGoal: 20,
           assessmentCompleted: Boolean(latestAssessment),
         });
         await user.save();
-      } else if (latestAssessment && (!user.assessmentCompleted || user.englishLevel === 'Not Assessed')) {
-        // Reconcile if assessment exists
-        user.assessmentCompleted = true;
-        user.englishLevel = latestAssessment.level;
-        user.overallScore = latestAssessment.overallScore || user.overallScore;
+      } else {
+        if (latestAssessment && (!user.assessmentCompleted || user.englishLevel === 'Not Assessed')) {
+          user.assessmentCompleted = true;
+          user.englishLevel = latestAssessment.level;
+          user.overallScore = latestAssessment.overallScore || user.overallScore;
+        }
+        user.streak = calculatedStreak;
         await user.save();
       }
 
@@ -167,15 +178,18 @@ export const getMyProfile = async (req, res) => {
         photoURL: req.user?.photoURL || '',
         englishLevel: storedAssessment?.level || 'Not Assessed',
         overallScore: storedAssessment?.overallScore || 0,
-        streak: storedAssessment ? 1 : 0,
+        streak: calculatedStreak,
         dailyGoal: 20,
         assessmentCompleted: Boolean(storedAssessment),
       };
       userStore.set(firebaseUid, profile);
-    } else if (storedAssessment && (!profile.assessmentCompleted || profile.englishLevel === 'Not Assessed')) {
-      profile.assessmentCompleted = true;
-      profile.englishLevel = storedAssessment.level;
-      profile.overallScore = storedAssessment.overallScore || profile.overallScore;
+    } else {
+      if (storedAssessment && (!profile.assessmentCompleted || profile.englishLevel === 'Not Assessed')) {
+        profile.assessmentCompleted = true;
+        profile.englishLevel = storedAssessment.level;
+        profile.overallScore = storedAssessment.overallScore || profile.overallScore;
+      }
+      profile.streak = calculatedStreak;
     }
 
     return successResponse(res, profile, 'Current user profile retrieved (Local Store)');

@@ -42,6 +42,11 @@ api.interceptors.request.use(
   async (config) => {
     config.baseURL = getBaseURL();
     try {
+      config.headers['X-Timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch {
+      config.headers['X-Timezone'] = 'UTC';
+    }
+    try {
       if (auth && auth.currentUser) {
         config.headers['X-Firebase-UID'] = auth.currentUser.uid;
         const token = await auth.currentUser.getIdToken(false);

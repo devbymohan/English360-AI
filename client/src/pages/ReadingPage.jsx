@@ -114,7 +114,7 @@ const getFallbackReadingPassage = (excluded = []) => {
 };
 
 export const ReadingPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [passageData, setPassageData] = useState(null);
   const [seenTopics, setSeenTopics] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -227,6 +227,9 @@ export const ReadingPage = () => {
 
       if (result) {
         setReadingResult(result);
+        if (typeof result.streak === 'number' && updateUserState) {
+          updateUserState({ streak: result.streak });
+        }
       } else {
         // Fallback calculation
         let correct = 0;

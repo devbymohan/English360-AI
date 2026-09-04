@@ -6,6 +6,7 @@ import LearningActivity from '../models/LearningActivity.js';
 import Notification from '../models/Notification.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 import { getOrCreateUser, addActivity, addNotificationLocal, assessmentStore } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 export const getAssessment = async (req, res) => {
   try {
@@ -22,7 +23,7 @@ export const submitAssessment = async (req, res) => {
   try {
     const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.body.firebaseUid || req.body.userId || req.headers['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
+      : (req.body?.firebaseUid || req.body?.userId || req.headers?.['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
 
     const {
       grammarScore = 80,
@@ -124,9 +125,13 @@ export const submitAssessment = async (req, res) => {
       console.warn('[Assessment] Save notice:', e.message);
     }
 
+    const timeZone = req.headers?.['x-timezone'] || req.body?.timezone || 'UTC';
+    const streak = await calculateAndPersistUserStreak(userId, timeZone);
+
     return successResponse(res, {
       estimatedLevel,
       overallScore,
+      streak,
       scores: {
         grammar: grammarScore,
         vocabulary: vocabularyScore,
@@ -146,7 +151,7 @@ export const getMyAssessment = async (req, res) => {
   try {
     const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
+      : (req.query?.firebaseUid || req.headers?.['x-firebase-uid'] || req.user?.uid);
 
     if (!userId) {
       return errorResponse(res, 'Unauthorized', 401);

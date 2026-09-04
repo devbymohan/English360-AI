@@ -5,6 +5,7 @@ import Mistake from '../models/Mistake.js';
 import LearningActivity from '../models/LearningActivity.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 import { addMistakes, addActivity } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 export const getTest = async (req, res) => {
   try {
@@ -19,7 +20,9 @@ export const getTest = async (req, res) => {
 
 export const submitTest = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid || 'guest';
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.body?.firebaseUid || req.body?.userId || req.headers?.['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
     const {
       testId = 'test_1',
       title = 'Comprehensive English Test',
@@ -110,6 +113,9 @@ export const submitTest = async (req, res) => {
       console.warn('[Test] TestResult save notice:', e.message);
     }
 
+    const timeZone = req.headers?.['x-timezone'] || req.body?.timezone || 'UTC';
+    const streak = await calculateAndPersistUserStreak(userId, timeZone);
+
     return successResponse(res, {
       id: savedResult?._id || testId,
       score,
@@ -119,6 +125,7 @@ export const submitTest = async (req, res) => {
       accuracy: score,
       timeTaken,
       sectionScores: sectionStats,
+      streak,
     }, 'Test evaluated and saved successfully');
   } catch (error) {
     console.error('[TestController] submitTest error:', error.message);

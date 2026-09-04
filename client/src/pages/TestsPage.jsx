@@ -18,7 +18,7 @@ const DEFAULT_TEST_CATEGORIES = [
 ];
 
 export const TestsPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All');
 
@@ -105,6 +105,9 @@ export const TestsPage = () => {
         answers,
         timeTaken: '08:45',
       });
+      if (typeof result?.streak === 'number' && updateUserState) {
+        updateUserState({ streak: result.streak });
+      }
       setIsTestModalOpen(false);
       navigate(`/test-results/${result.id || 'recent'}`);
     } catch (err) {

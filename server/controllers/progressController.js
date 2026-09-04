@@ -6,44 +6,14 @@ import Assessment from '../models/Assessment.js';
 import GrammarProgress from '../models/GrammarProgress.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 import { userStore, getActivities, mistakeStore, getOrCreateUser, assessmentStore } from '../utils/inMemoryStore.js';
-
-// Helper to calculate real streak based on distinct consecutive learning days
-const calculateStreak = (activities = []) => {
-  if (!activities || activities.length === 0) return 0;
-
-  const dates = new Set(
-    activities.map((a) => new Date(a.createdAt).toISOString().split('T')[0])
-  );
-
-  const sortedDates = Array.from(dates).sort().reverse();
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-  if (!sortedDates.includes(today) && !sortedDates.includes(yesterday)) {
-    return 0;
-  }
-
-  let streak = 0;
-  let checkDate = new Date(sortedDates.includes(today) ? today : yesterday);
-
-  while (true) {
-    const dateStr = checkDate.toISOString().split('T')[0];
-    if (dates.has(dateStr)) {
-      streak++;
-      checkDate = new Date(checkDate.getTime() - 86400000);
-    } else {
-      break;
-    }
-  }
-
-  return streak;
-};
+import { calculateRealStreak } from '../utils/streakHelper.js';
 
 export const getStudentProgress = async (req, res) => {
   try {
+    const timeZone = req.headers?.['x-timezone'] || req.query?.timezone || 'UTC';
     const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
+      : (req.query?.firebaseUid || req.headers?.['x-firebase-uid'] || req.user?.uid);
     if (!userId) {
       return errorResponse(res, 'Unauthorized', 401);
     }
@@ -103,7 +73,7 @@ export const getStudentProgress = async (req, res) => {
     const level = user?.englishLevel || 'Not Assessed';
     const overallScore = user?.overallScore || 0;
     const assessmentCompleted = Boolean(user?.assessmentCompleted || resolvedAssessment);
-    const streak = calculateStreak(activities);
+    const streak = calculateRealStreak(activities, timeZone);
 
     const lessonsCompleted = activities.length;
     const questionsSolved = lessonsCompleted * 5;
@@ -142,9 +112,10 @@ export const getStudentProgress = async (req, res) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
+    const timeZone = req.headers?.['x-timezone'] || req.query?.timezone || 'UTC';
     const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
       ? req.firebaseUid
-      : (req.query.firebaseUid || req.headers['x-firebase-uid'] || req.user?.uid);
+      : (req.query?.firebaseUid || req.headers?.['x-firebase-uid'] || req.user?.uid);
     if (!userId) {
       return errorResponse(res, 'Unauthorized', 401);
     }
@@ -196,7 +167,7 @@ export const getDashboardSummary = async (req, res) => {
       }
     }
 
-    const streak = calculateStreak(activities);
+    const streak = calculateRealStreak(activities, timeZone);
     const userName = user?.name || req.user?.name || req.user?.displayName || 'Student';
     const englishLevel = user?.englishLevel || 'Not Assessed';
     const overallScore = user?.overallScore || 0;

@@ -382,8 +382,12 @@ export const AssessmentPage = () => {
       assessmentCompleted: true,
     };
 
+    let streak = 1;
     try {
-      await assessmentService.submitAssessment(resultPayload);
+      const res = await assessmentService.submitAssessment(resultPayload);
+      if (typeof res?.streak === 'number') {
+        streak = res.streak;
+      }
     } catch (err) {
       console.warn('[AssessmentPage] Backend submission notice:', err.message);
     } finally {
@@ -393,6 +397,7 @@ export const AssessmentPage = () => {
         level: level,
         englishLevel: level,
         overallScore,
+        streak,
       });
       setHasCompletedAssessment(true);
       setCurrentSectionIdx(5); // Results step

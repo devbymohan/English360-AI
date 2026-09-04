@@ -12,6 +12,7 @@ import {
   addSeenReadingTopicLocal,
   getSeenReadingTopicsLocal,
 } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 export const getReadingPassage = async (req, res) => {
   try {
@@ -50,7 +51,9 @@ export const getReadingPassage = async (req, res) => {
 
 export const submitReadingAttempt = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid || 'guest';
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.body?.firebaseUid || req.body?.userId || req.headers?.['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
     const {
       passageId = 'passage_1',
       title = 'Reading Comprehension',
@@ -136,6 +139,9 @@ export const submitReadingAttempt = async (req, res) => {
       }
     }
 
+    const timeZone = req.headers?.['x-timezone'] || req.body?.timezone || 'UTC';
+    const streak = await calculateAndPersistUserStreak(userId, timeZone);
+
     return successResponse(
       res,
       {
@@ -147,6 +153,7 @@ export const submitReadingAttempt = async (req, res) => {
         wpm,
         readingTimeSeconds,
         mistakesCount: mistakeDocs.length,
+        streak,
       },
       'Reading attempt recorded successfully'
     );

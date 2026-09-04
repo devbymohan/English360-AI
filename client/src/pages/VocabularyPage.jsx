@@ -269,7 +269,7 @@ const getFallbackVocabSet = (excludedWords = []) => {
 };
 
 export const VocabularyPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [activeTab, setActiveTab] = useState('daily');
   const [wordsList, setWordsList] = useState(() =>
     INITIAL_5_WORDS.map((w) => ({
@@ -298,7 +298,10 @@ export const VocabularyPage = () => {
   const loadProgress = async () => {
     try {
       const data = await progressService.getProgress();
-      if (data) setStreak(data.streak || 0);
+      if (data) {
+        setStreak(data.streak || 0);
+        if (updateUserState) updateUserState({ streak: data.streak || 0 });
+      }
     } catch (e) {}
   };
 
@@ -395,6 +398,10 @@ export const VocabularyPage = () => {
 
       if (result) {
         setQuizResult(result);
+        if (typeof result.streak === 'number') {
+          setStreak(result.streak);
+          if (updateUserState) updateUserState({ streak: result.streak });
+        }
       } else {
         // Local evaluation fallback
         let correct = 0;

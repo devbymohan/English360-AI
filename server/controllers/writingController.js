@@ -5,10 +5,13 @@ import LearningActivity from '../models/LearningActivity.js';
 import Notification from '../models/Notification.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 import { addActivity, addNotificationLocal } from '../utils/inMemoryStore.js';
+import { calculateAndPersistUserStreak } from '../utils/streakHelper.js';
 
 export const evaluateStudentWriting = async (req, res) => {
   try {
-    const userId = req.firebaseUid || req.user?.uid || 'guest';
+    const userId = (req.firebaseUid && req.firebaseUid !== 'usr_guest_student')
+      ? req.firebaseUid
+      : (req.body?.firebaseUid || req.body?.userId || req.headers?.['x-firebase-uid'] || req.user?.uid || 'usr_guest_student');
     const { topic = 'The Impact of Technology on Students', content = '', level = 'B1' } = req.body;
 
     if (!content.trim()) {
@@ -64,7 +67,17 @@ export const evaluateStudentWriting = async (req, res) => {
       }
     }
 
-    return successResponse(res, evaluation, 'Writing evaluated successfully by AI');
+    const timeZone = req.headers?.['x-timezone'] || req.body?.timezone || 'UTC';
+    const streak = await calculateAndPersistUserStreak(userId, timeZone);
+
+    return successResponse(
+      res,
+      {
+        ...evaluation,
+        streak,
+      },
+      'Writing evaluated successfully by AI'
+    );
   } catch (error) {
     console.error('[WritingController] evaluateStudentWriting error:', error.message);
     return errorResponse(res, `Failed to evaluate writing: ${error.message}`, 500);

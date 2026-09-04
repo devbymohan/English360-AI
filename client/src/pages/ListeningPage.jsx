@@ -102,7 +102,7 @@ const getFallbackListeningLesson = (excluded = []) => {
 };
 
 export const ListeningPage = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [lesson, setLesson] = useState(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -169,6 +169,9 @@ export const ListeningPage = () => {
         answers: selectedAnswers,
       });
       setSubmissionResult(result);
+      if (typeof result?.streak === 'number' && updateUserState) {
+        updateUserState({ streak: result.streak });
+      }
     } catch (err) {
       console.warn('[ListeningPage] Submit listening error:', err.message);
     } finally {

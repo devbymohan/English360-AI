@@ -71,7 +71,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     const overallScore = mongoData?.overallScore ?? cached?.overallScore ?? 0;
-    const streak = mongoData?.streak ?? cached?.streak ?? (level !== 'Not Assessed' ? 1 : 0);
+    const streak = typeof mongoData?.streak === 'number'
+      ? mongoData.streak
+      : (typeof cached?.streak === 'number' ? cached.streak : 0);
     const assessmentCompleted = Boolean(
       mongoData?.assessmentCompleted ||
       cached?.assessmentCompleted ||
