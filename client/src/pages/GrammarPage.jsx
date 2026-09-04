@@ -38,6 +38,102 @@ const GRAMMAR_TOPICS = [
   { id: 7, title: 'Passive Voice & Reported Speech', level: 'C1' },
 ];
 
+const FALLBACK_TOPIC_DATA = {
+  'Present Simple': [
+    { prompt: 'Choose the correct form of the verb for habitual actions:', sentence: 'Maya ________ to work by train every weekday morning.', options: [{ id: 'A', text: 'commutes' }, { id: 'B', text: 'is commuting' }, { id: 'C', text: 'commuted' }, { id: 'D', text: 'commute' }], correctAnswer: 'A', explanation: 'Use the third-person singular present simple (verb + s/es) for routines and daily habits.' },
+    { prompt: 'Select the correct negative present simple statement:', sentence: 'Liam ________ coffee in the evening because it disrupts his sleep.', options: [{ id: 'A', text: 'does not drink' }, { id: 'B', text: 'is not drinking' }, { id: 'C', text: 'do not drink' }, { id: 'D', text: 'not drinks' }], correctAnswer: 'A', explanation: 'Singular third-person subjects take "does not" + base form of the verb.' },
+    { prompt: 'Complete the question in simple present tense:', sentence: '________ your colleagues prefer virtual meetings or in-person sessions?', options: [{ id: 'A', text: 'Do' }, { id: 'B', text: 'Does' }, { id: 'C', text: 'Are' }, { id: 'D', text: 'Is' }], correctAnswer: 'A', explanation: 'Plural subject "your colleagues" takes the auxiliary verb "Do".' },
+    { prompt: 'Identify the universal truth statement:', sentence: 'Water ________ at 100 degrees Celsius under standard atmospheric pressure.', options: [{ id: 'A', text: 'boils' }, { id: 'B', text: 'is boiling' }, { id: 'C', text: 'will boil' }, { id: 'D', text: 'boiled' }], correctAnswer: 'A', explanation: 'Scientific facts and general truths always take the simple present tense.' },
+    { prompt: 'Choose the correct frequency adverb placement:', sentence: 'Daniel ________ late for Monday morning project standups.', options: [{ id: 'A', text: 'is rarely' }, { id: 'B', text: 'rarely is' }, { id: 'C', text: 'is being rarely' }, { id: 'D', text: 'rarely be' }], correctAnswer: 'A', explanation: 'Adverbs of frequency follow the verb "to be" and precede main verbs.' }
+  ],
+  'Present Continuous': [
+    { prompt: 'Choose the correct continuous verb form:', sentence: 'The engineering team ________ the new cloud architecture right now.', options: [{ id: 'A', text: 'is deploying' }, { id: 'B', text: 'deploys' }, { id: 'C', text: 'deployed' }, { id: 'D', text: 'are deploying' }], correctAnswer: 'A', explanation: 'Actions happening right now take present continuous (is/are + verb-ing).' },
+    { prompt: 'Select the temporary situation statement:', sentence: 'Elena ________ from home this week while the main office is renovated.', options: [{ id: 'A', text: 'is working' }, { id: 'B', text: 'works' }, { id: 'C', text: 'worked' }, { id: 'D', text: 'work' }], correctAnswer: 'A', explanation: 'Temporary situations use the present continuous tense.' },
+    { prompt: 'Identify the stative verb that should NOT be in continuous form:', sentence: 'I ________ the core concept much better now.', options: [{ id: 'A', text: 'understand' }, { id: 'B', text: 'am understanding' }, { id: 'C', text: 'am understood' }, { id: 'D', text: 'understanding' }], correctAnswer: 'A', explanation: 'Stative verbs like "understand" express mental states and are used in simple aspect.' },
+    { prompt: 'Complete the future plan statement:', sentence: 'We ________ with the client tomorrow afternoon at 3 PM.', options: [{ id: 'A', text: 'are meeting' }, { id: 'B', text: 'meet' }, { id: 'C', text: 'met' }, { id: 'D', text: 'are meet' }], correctAnswer: 'A', explanation: 'Present continuous is commonly used for fixed future arrangements.' },
+    { prompt: 'Choose the correct changing trend form:', sentence: 'Renewable energy adoption ________ steadily across the globe.', options: [{ id: 'A', text: 'is growing' }, { id: 'B', text: 'grows' }, { id: 'C', text: 'grow' }, { id: 'D', text: 'is grow' }], correctAnswer: 'A', explanation: 'Trends and ongoing gradual changes use present continuous.' }
+  ],
+  'Present Perfect': [
+    { prompt: 'Choose the correct present perfect form:', sentence: 'Our department ________ three major quarterly milestones so far.', options: [{ id: 'A', text: 'has achieved' }, { id: 'B', text: 'achieved' }, { id: 'C', text: 'have achieved' }, { id: 'D', text: 'is achieving' }], correctAnswer: 'A', explanation: 'Present perfect connects past actions with present relevance.' },
+    { prompt: 'Select the correct time word usage:', sentence: 'Have you ________ reviewed the updated compliance guidelines?', options: [{ id: 'A', text: 'already' }, { id: 'B', text: 'yet' }, { id: 'C', text: 'since' }, { id: 'D', text: 'ago' }], correctAnswer: 'A', explanation: '"Already" is used in positive statements and questions for completed actions.' },
+    { prompt: 'Choose the correct duration preposition:', sentence: 'She has worked as a data analyst ________ five years.', options: [{ id: 'A', text: 'for' }, { id: 'B', text: 'since' }, { id: 'C', text: 'during' }, { id: 'D', text: 'from' }], correctAnswer: 'A', explanation: 'Use "for" with periods of time and "since" with specific starting points.' },
+    { prompt: 'Select the life experience sentence:', sentence: 'He ________ to over fifteen international conferences throughout his career.', options: [{ id: 'A', text: 'has been' }, { id: 'B', text: 'was' }, { id: 'C', text: 'has gone' }, { id: 'D', text: 'is being' }], correctAnswer: 'A', explanation: 'Use "has been to" when discussing completed life travel experiences.' },
+    { prompt: 'Identify the result in the present:', sentence: 'I ________ my keys, so I cannot unlock the laboratory door.', options: [{ id: 'A', text: 'have lost' }, { id: 'B', text: 'lost' }, { id: 'C', text: 'lose' }, { id: 'D', text: 'am losing' }], correctAnswer: 'A', explanation: 'Present perfect is used when a past action has an immediate result now.' }
+  ],
+  'Past Simple & Continuous': [
+    { prompt: 'Choose the interrupted action structure:', sentence: 'While she ________ the presentation, the power suddenly went out.', options: [{ id: 'A', text: 'was delivering' }, { id: 'B', text: 'delivered' }, { id: 'C', text: 'is delivering' }, { id: 'D', text: 'delivers' }], correctAnswer: 'A', explanation: 'The ongoing longer background action uses past continuous, while the interruption uses past simple.' },
+    { prompt: 'Select the finished past event:', sentence: 'The team ________ the project prototype last Friday.', options: [{ id: 'A', text: 'finalized' }, { id: 'B', text: 'was finalizing' }, { id: 'C', text: 'has finalized' }, { id: 'D', text: 'finalizes' }], correctAnswer: 'A', explanation: 'Specific past time markers ("last Friday") require past simple.' },
+    { prompt: 'Choose the simultaneous past actions form:', sentence: 'While Alex was writing the code, Priya ________ the user interface.', options: [{ id: 'A', text: 'was designing' }, { id: 'B', text: 'designed' }, { id: 'C', text: 'designs' }, { id: 'D', text: 'has designed' }], correctAnswer: 'A', explanation: 'Two continuous parallel actions in the past both take past continuous.' },
+    { prompt: 'Complete the past state sentence:', sentence: 'They ________ about the schedule change until yesterday morning.', options: [{ id: 'A', text: 'did not know' }, { id: 'B', text: 'were not knowing' }, { id: 'C', text: 'have not known' }, { id: 'D', text: 'not knew' }], correctAnswer: 'A', explanation: 'Past negative uses "did not" + base verb.' },
+    { prompt: 'Identify the correct sequence of events:', sentence: 'He arrived at the office, opened his laptop, and ________ checking his inbox.', options: [{ id: 'A', text: 'started' }, { id: 'B', text: 'was starting' }, { id: 'C', text: 'has started' }, { id: 'D', text: 'starts' }], correctAnswer: 'A', explanation: 'A series of completed sequential past actions all take past simple.' }
+  ],
+  'Future Forms & Modals': [
+    { prompt: 'Select the scheduled future event form:', sentence: 'The keynote presentation ________ at 9:00 AM tomorrow.', options: [{ id: 'A', text: 'starts' }, { id: 'B', text: 'will start' }, { id: 'C', text: 'is starting' }, { id: 'D', text: 'is going to start' }], correctAnswer: 'A', explanation: 'Fixed timetables and official schedules take the simple present.' },
+    { prompt: 'Choose the spontaneous decision form:', sentence: 'The phone is ringing. I ________ it!', options: [{ id: 'A', text: 'will answer' }, { id: 'B', text: 'am answering' }, { id: 'C', text: 'answer' }, { id: 'D', text: 'am going to answer' }], correctAnswer: 'A', explanation: 'Spontaneous decisions made at the moment of speaking take "will".' },
+    { prompt: 'Select the modal for strong obligation:', sentence: 'All laboratory personnel ________ wear protective eyewear at all times.', options: [{ id: 'A', text: 'must' }, { id: 'B', text: 'might' }, { id: 'C', text: 'could' }, { id: 'D', text: 'would' }], correctAnswer: 'A', explanation: '"Must" expresses strict necessity and official rules.' },
+    { prompt: 'Choose the modal for polite request:', sentence: '________ you please provide the quarterly expense breakdown?', options: [{ id: 'A', text: 'Could' }, { id: 'B', text: 'Should' }, { id: 'C', text: 'Must' }, { id: 'D', text: 'Shall' }], correctAnswer: 'A', explanation: '"Could" is used for polite, formal requests.' },
+    { prompt: 'Select the prediction based on present evidence:', sentence: 'Look at those dark clouds! It ________ rain very soon.', options: [{ id: 'A', text: 'is going to' }, { id: 'B', text: 'will' }, { id: 'C', text: 'shall' }, { id: 'D', text: 'might to' }], correctAnswer: 'A', explanation: 'Predictions with clear physical evidence take "going to".' }
+  ],
+  'Conditionals (0, 1, 2, 3)': [
+    { prompt: 'Complete the First Conditional sentence:', sentence: 'If we ________ the quarterly target, the company will award team bonuses.', options: [{ id: 'A', text: 'exceed' }, { id: 'B', text: 'will exceed' }, { id: 'C', text: 'exceeded' }, { id: 'D', text: 'exceeding' }], correctAnswer: 'A', explanation: 'First conditional if-clause uses present simple for real future possibilities.' },
+    { prompt: 'Complete the Second Conditional sentence:', sentence: 'If I ________ more free time, I would learn full-stack web development.', options: [{ id: 'A', text: 'had' }, { id: 'B', text: 'have' }, { id: 'C', text: 'would have' }, { id: 'D', text: 'will have' }], correctAnswer: 'A', explanation: 'Second conditional uses past simple in the if-clause for hypothetical situations.' },
+    { prompt: 'Complete the Third Conditional sentence:', sentence: 'If they had tested the system thoroughly, they ________ the vulnerability.', options: [{ id: 'A', text: 'would have caught' }, { id: 'B', text: 'would catch' }, { id: 'C', text: 'had caught' }, { id: 'D', text: 'caught' }], correctAnswer: 'A', explanation: 'Third conditional main clause uses "would have" + past participle for past regrets.' },
+    { prompt: 'Identify the Zero Conditional rule:', sentence: 'If you heat ice, it ________ into liquid water.', options: [{ id: 'A', text: 'melts' }, { id: 'B', text: 'will melt' }, { id: 'C', text: 'would melt' }, { id: 'D', text: 'melted' }], correctAnswer: 'A', explanation: 'Zero conditional uses present simple in both clauses for scientific laws.' },
+    { prompt: 'Select the correct mixed conditional structure:', sentence: 'If she had taken the earlier flight, she ________ here with us today.', options: [{ id: 'A', text: 'would be' }, { id: 'B', text: 'would have been' }, { id: 'C', text: 'will be' }, { id: 'D', text: 'is' }], correctAnswer: 'A', explanation: 'Past action with present result uses "had + past participle" and "would + base verb".' }
+  ],
+  'Passive Voice & Reported Speech': [
+    { prompt: 'Convert to the correct passive construction:', sentence: 'The final research report ________ by the senior committee yesterday.', options: [{ id: 'A', text: 'was approved' }, { id: 'B', text: 'approved' }, { id: 'C', text: 'is approved' }, { id: 'D', text: 'has approved' }], correctAnswer: 'A', explanation: 'Past simple passive uses "was/were" + past participle.' },
+    { prompt: 'Complete the reported statement correctly:', sentence: 'She said that she ________ the documentation the previous day.', options: [{ id: 'A', text: 'had completed' }, { id: 'B', text: 'completed' }, { id: 'C', text: 'has completed' }, { id: 'D', text: 'completes' }], correctAnswer: 'A', explanation: 'Past simple backshifts to past perfect in reported speech.' },
+    { prompt: 'Select the passive with modal verb:', sentence: 'All safety guidelines ________ by every employee without exception.', options: [{ id: 'A', text: 'must be followed' }, { id: 'B', text: 'must follow' }, { id: 'C', text: 'must been followed' }, { id: 'D', text: 'must be following' }], correctAnswer: 'A', explanation: 'Modal passive uses "modal + be + past participle".' },
+    { prompt: 'Complete the reported question structure:', sentence: 'He asked me where I ________ the project files.', options: [{ id: 'A', text: 'had stored' }, { id: 'B', text: 'did I store' }, { id: 'C', text: 'have stored' }, { id: 'D', text: 'do store' }], correctAnswer: 'A', explanation: 'Reported questions use statement word order without question inversion.' },
+    { prompt: 'Identify the continuous passive form:', sentence: 'The new server infrastructure ________ as we speak.', options: [{ id: 'A', text: 'is being configured' }, { id: 'B', text: 'is configuring' }, { id: 'C', text: 'is been configured' }, { id: 'D', text: 'was being configured' }], correctAnswer: 'A', explanation: 'Present continuous passive uses "is/are being + past participle".' }
+  ]
+};
+
+const shuffleArray = (arr) => {
+  const clone = [...arr];
+  for (let i = clone.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [clone[i], clone[j]] = [clone[j], clone[i]];
+  }
+  return clone;
+};
+
+const getFallbackGrammarLesson = (topic = 'Present Simple', level = 'B1', sessionId = '') => {
+  const pool = FALLBACK_TOPIC_DATA[topic] || FALLBACK_TOPIC_DATA['Present Simple'];
+  const questions = pool.map((q, idx) => {
+    const originalOptions = [...q.options];
+    const correctOpt = originalOptions.find((o) => o.id === q.correctAnswer) || originalOptions[0];
+    const shuffledOpts = shuffleArray(originalOptions);
+    const letterLabels = ['A', 'B', 'C', 'D'];
+    let newCorrectId = 'A';
+    const reindexedOpts = shuffledOpts.map((opt, i) => {
+      const letter = letterLabels[i];
+      if (opt.text === correctOpt.text) {
+        newCorrectId = letter;
+      }
+      return { id: letter, text: opt.text };
+    });
+    return {
+      id: `${topic.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${sessionId}_q_${idx + 1}`,
+      number: idx + 1,
+      prompt: q.prompt,
+      sentence: q.sentence,
+      options: reindexedOpts,
+      correctAnswer: newCorrectId,
+      explanation: q.explanation,
+    };
+  });
+
+  return {
+    title: `${topic} Practice`,
+    topic,
+    level,
+    description: `Master ${topic} syntax and structures with interactive AI exercises.`,
+    questions,
+  };
+};
+
 export const GrammarPage = () => {
   const { user } = useAuth();
   const [currentTopic, setCurrentTopic] = useState('Present Simple');
@@ -147,9 +243,13 @@ export const GrammarPage = () => {
       const data = await grammarService.getLesson(topic, userLevel, 5, activeSession, Date.now());
       if (data && data.questions && data.questions.length > 0) {
         setLessonData(data);
+      } else {
+        setLessonData(getFallbackGrammarLesson(topic, userLevel, activeSession));
       }
     } catch (err) {
       console.warn('[GrammarPage] Error loading grammar lesson:', err.message);
+      const userLevel = user?.level && user.level !== 'Not Assessed' ? user.level : 'B1';
+      setLessonData(getFallbackGrammarLesson(topic, userLevel, activeSession));
     } finally {
       setIsGenerating(false);
     }

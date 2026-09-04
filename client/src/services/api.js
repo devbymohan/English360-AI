@@ -1,15 +1,28 @@
 import axios from 'axios';
 import { auth } from '../config/firebase';
 
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim()) {
+    // Ensure trailing slash isn't doubled
+    return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  }
+  // If running in browser on production (e.g. Vercel) without env var, warn and try relative
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return '/api';
+  }
+  return 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 60000, // 60 seconds for Render wakeups & AI generations
 });
 
-// Central Request Interceptor: Automatically attach Firebase ID token
+// Central Request Interceptor: Automatically attach Firebase ID token or student token
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -22,12 +35,18 @@ api.interceptors.request.use(
       }
 
       // Fallback token from localStorage
-      const storedToken = localStorage.getItem('token') || localStorage.getItem('english360_auth_token');
+      const storedToken =
+        localStorage.getItem('token') ||
+        localStorage.getItem('english360_auth_token') ||
+        localStorage.getItem('english360_user_uid');
+
       if (storedToken) {
         config.headers.Authorization = `Bearer ${storedToken}`;
+      } else {
+        config.headers.Authorization = `Bearer usr_guest_student`;
       }
     } catch (error) {
-      console.warn('[API Interceptor] Token retrieval notice:', error.message);
+      config.headers.Authorization = `Bearer usr_guest_student`;
     }
     return config;
   },

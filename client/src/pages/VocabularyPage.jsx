@@ -167,6 +167,107 @@ const INITIAL_5_WORDS = [
   },
 ];
 
+const ALL_FALLBACK_WORDS = [
+  ...INITIAL_5_WORDS,
+  {
+    id: 6,
+    word: 'Ambiguous',
+    phonetic: '/æmˈbɪɡ.ju.əs/',
+    partOfSpeech: 'Adjective',
+    meaning: 'Open to more than one interpretation; having a double meaning or unclear.',
+    example: 'The politician gave an ambiguous reply to avoid taking a controversial stance.',
+    synonyms: ['unclear', 'vague', 'equivocal'],
+    antonyms: ['clear', 'lucid', 'unambiguous'],
+    bookmarked: false,
+    practiceQuestion: {
+      prompt: 'Choose the word meaning "unclear and open to multiple interpretations":',
+      options: [{ id: 'A', text: 'Ambiguous' }, { id: 'B', text: 'Ambitious' }, { id: 'C', text: 'Authentic' }, { id: 'D', text: 'Articulate' }],
+      correctAnswer: 'A',
+      explanation: '"Ambiguous" describes statements or situations with uncertain, double meanings.',
+    },
+  },
+  {
+    id: 7,
+    word: 'Comprehensive',
+    phonetic: '/ˌkɑːm.prɪˈhen.sɪv/',
+    partOfSpeech: 'Adjective',
+    meaning: 'Complete, inclusive, and including all or nearly all elements or aspects of something.',
+    example: 'The professor provided a comprehensive review guide covering the entire semester.',
+    synonyms: ['exhaustive', 'thorough', 'all-inclusive'],
+    antonyms: ['partial', 'incomplete', 'limited'],
+    bookmarked: false,
+    practiceQuestion: {
+      prompt: 'Select the synonym for "Comprehensive":',
+      options: [{ id: 'A', text: 'Thorough and complete' }, { id: 'B', text: 'Short and brief' }, { id: 'C', text: 'Confusing' }, { id: 'D', text: 'Complicated' }],
+      correctAnswer: 'A',
+      explanation: '"Comprehensive" means including all relevant aspects and details.',
+    },
+  },
+  {
+    id: 8,
+    word: 'Substantiate',
+    phonetic: '/səbˈstæn.ʃi.eɪt/',
+    partOfSpeech: 'Verb',
+    meaning: 'To provide evidence to support or prove the truth of an assertion.',
+    example: 'Researchers must substantiate their hypotheses with rigorous empirical data.',
+    synonyms: ['verify', 'validate', 'corroborate'],
+    antonyms: ['disprove', 'refute', 'invalidate'],
+    bookmarked: false,
+    practiceQuestion: {
+      prompt: 'Which verb means "to prove or back up with evidence"?',
+      options: [{ id: 'A', text: 'Substantiate' }, { id: 'B', text: 'Substitute' }, { id: 'C', text: 'Subdue' }, { id: 'D', text: 'Subvert' }],
+      correctAnswer: 'A',
+      explanation: '"Substantiate" means to confirm or authenticate with verifiable evidence.',
+    },
+  },
+  {
+    id: 9,
+    word: 'Prerequisite',
+    phonetic: '/ˌpriːˈrek.wə.zɪt/',
+    partOfSpeech: 'Noun',
+    meaning: 'A thing that is required as a prior condition for something else to happen or exist.',
+    example: 'Passing foundational calculus is a prerequisite for advanced physics.',
+    synonyms: ['requirement', 'precondition', 'essential'],
+    antonyms: ['optional', 'secondary', 'nonessential'],
+    bookmarked: false,
+    practiceQuestion: {
+      prompt: 'What does "Prerequisite" refer to?',
+      options: [{ id: 'A', text: 'A required condition before proceeding' }, { id: 'B', text: 'An optional recommendation' }, { id: 'C', text: 'A final conclusion' }, { id: 'D', text: 'A sudden obstacle' }],
+      correctAnswer: 'A',
+      explanation: 'A prerequisite must be fulfilled beforehand.',
+    },
+  },
+  {
+    id: 10,
+    word: 'Lucid',
+    phonetic: '/ˈluː.sɪd/',
+    partOfSpeech: 'Adjective',
+    meaning: 'Expressed clearly; easy to understand; having a clear mind.',
+    example: 'Her lucid explanation made the complex algorithm easy for beginners to grasp.',
+    synonyms: ['clear', 'coherent', 'intelligible'],
+    antonyms: ['obscure', 'muddled', 'confusing'],
+    bookmarked: false,
+    practiceQuestion: {
+      prompt: 'Select the best antonym (opposite) of "Lucid":',
+      options: [{ id: 'A', text: 'Confusing / Obscure' }, { id: 'B', text: 'Brilliant' }, { id: 'C', text: 'Transparent' }, { id: 'D', text: 'Rational' }],
+      correctAnswer: 'A',
+      explanation: '"Lucid" means crystal clear; its direct opposite is obscure or muddled.',
+    },
+  },
+];
+
+const getFallbackVocabSet = (excludedWords = []) => {
+  const normExcluded = (excludedWords || []).map((w) => String(w).trim().toLowerCase());
+  const available = ALL_FALLBACK_WORDS.filter((w) => !normExcluded.includes(w.word.toLowerCase()));
+  const pool = available.length >= 5 ? available : ALL_FALLBACK_WORDS;
+  const shuffled = [...pool].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 5).map((w, idx) => ({
+    ...w,
+    id: `vocab_${Date.now()}_${idx + 1}`,
+    practiceQuestion: w.practiceQuestion ? shuffleQuestionOptions(w.practiceQuestion) : null,
+  }));
+};
+
 export const VocabularyPage = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('daily');
@@ -203,8 +304,8 @@ export const VocabularyPage = () => {
 
   const loadWords = async (forceNew = false) => {
     setIsGenerating(true);
+    const excludedWords = forceNew ? wordsList.map((w) => w.word) : [];
     try {
-      const excludedWords = forceNew ? wordsList.map((w) => w.word) : [];
       const sessionId = 'vocab_' + Date.now();
       const userLevel = user?.level || user?.englishLevel || 'B1';
 
@@ -221,13 +322,27 @@ export const VocabularyPage = () => {
         setWordsList(new5);
         setSelectedWord(new5[0]);
         setFlashcardIdx(0);
-        // Reset quiz state to align with new 5 words
+        setQuizIndex(0);
+        setQuizAnswers({});
+        setQuizResult(null);
+      } else {
+        const fallbackSet = getFallbackVocabSet(excludedWords);
+        setWordsList(fallbackSet);
+        setSelectedWord(fallbackSet[0]);
+        setFlashcardIdx(0);
         setQuizIndex(0);
         setQuizAnswers({});
         setQuizResult(null);
       }
     } catch (err) {
       console.warn('[VocabularyPage] Load words error:', err.message);
+      const fallbackSet = getFallbackVocabSet(excludedWords);
+      setWordsList(fallbackSet);
+      setSelectedWord(fallbackSet[0]);
+      setFlashcardIdx(0);
+      setQuizIndex(0);
+      setQuizAnswers({});
+      setQuizResult(null);
     } finally {
       setIsGenerating(false);
     }
