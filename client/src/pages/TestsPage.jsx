@@ -109,10 +109,11 @@ export const TestsPage = () => {
         updateUserState({ streak: result.streak });
       }
       setIsTestModalOpen(false);
-      navigate(`/test-results/${result.id || 'recent'}`);
+      navigate(`/test-results/${result?.id || 'recent'}`);
     } catch (err) {
       console.warn('[TestsPage] Submit test error:', err.message);
       setIsTestModalOpen(false);
+      navigate('/test-results/recent');
     } finally {
       setIsSubmitting(false);
     }

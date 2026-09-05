@@ -18,6 +18,7 @@ import {
   parseUserMetadata,
   buildPhotoURLWithMetadata,
 } from '../utils/firebaseMetadata';
+import { getClientStreak } from '../utils/streakManager';
 import api from '../services/api';
 
 // Scoped UID profile caching helpers to ensure zero-flash persistence across sessions
@@ -88,11 +89,14 @@ export const AuthProvider = ({ children }) => {
     }
 
     const overallScore = mongoData?.overallScore ?? fbMeta?.overallScore ?? cached?.overallScore ?? (isMohanKumar ? 52 : 0);
-    const streak = typeof mongoData?.streak === 'number'
+    const clientStreak = getClientStreak(fbUser.uid);
+    const streak = typeof mongoData?.streak === 'number' && mongoData.streak > 0
       ? mongoData.streak
-      : (typeof fbMeta?.streak === 'number'
-        ? fbMeta.streak
-        : (typeof cached?.streak === 'number' ? cached.streak : 0));
+      : (clientStreak > 0
+        ? clientStreak
+        : (typeof fbMeta?.streak === 'number'
+          ? fbMeta.streak
+          : (typeof cached?.streak === 'number' ? cached.streak : 0)));
 
     const assessmentCompleted = Boolean(
       mongoData?.assessmentCompleted ||

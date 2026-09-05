@@ -402,25 +402,24 @@ export const VocabularyPage = () => {
           setStreak(result.streak);
           if (updateUserState) updateUserState({ streak: result.streak });
         }
-      } else {
-        // Local evaluation fallback
-        let correct = 0;
-        wordsList.forEach((w, idx) => {
-          const ans = quizAnswers[idx];
-          const expected = w.practiceQuestion?.correctAnswer || 'A';
-          if (ans === expected) correct++;
-        });
-        setQuizResult({
-          score: Math.round((correct / wordsList.length) * 100),
-          correctCount: correct,
-          wrongCount: wordsList.length - correct,
-          total: wordsList.length,
-          mistakesCount: wordsList.length - correct,
-        });
       }
-      loadProgress();
     } catch (err) {
       console.warn('[VocabularyPage] Quiz submit error:', err.message);
+      let correct = 0;
+      wordsList.forEach((w, idx) => {
+        const ans = quizAnswers[idx];
+        const expected = w.practiceQuestion?.correctAnswer || 'A';
+        if (ans === expected) correct++;
+      });
+      const total = wordsList.length || 5;
+      const score = Math.round((correct / total) * 100);
+      setQuizResult({
+        score,
+        correctCount: correct,
+        wrongCount: total - correct,
+        total,
+        mistakesCount: total - correct,
+      });
     } finally {
       setIsSubmittingQuiz(false);
     }

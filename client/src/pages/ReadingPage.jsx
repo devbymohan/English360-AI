@@ -230,27 +230,25 @@ export const ReadingPage = () => {
         if (typeof result.streak === 'number' && updateUserState) {
           updateUserState({ streak: result.streak });
         }
-      } else {
-        // Fallback calculation
-        let correct = 0;
-        passageData.questions.forEach((q, idx) => {
-          if (answers[idx] === q.correctAnswer) correct++;
-        });
-        const total = passageData.questions.length;
-        const accuracy = Math.round((correct / total) * 100);
-        const wpm = Math.round(totalWords / (safeElapsed / 60));
-        setReadingResult({
-          score: accuracy,
-          accuracy,
-          correctCount: correct,
-          wrongCount: total - correct,
-          total,
-          wpm,
-          readingTimeSeconds: safeElapsed,
-        });
       }
     } catch (err) {
       console.warn('[ReadingPage] Submit reading error:', err.message);
+      let correct = 0;
+      passageData.questions.forEach((q, idx) => {
+        if (answers[idx] === q.correctAnswer) correct++;
+      });
+      const total = passageData.questions.length || 5;
+      const accuracy = Math.round((correct / total) * 100);
+      const wpm = Math.round(totalWords / (safeElapsed / 60));
+      setReadingResult({
+        score: accuracy,
+        accuracy,
+        correctCount: correct,
+        wrongCount: total - correct,
+        total,
+        wpm,
+        readingTimeSeconds: safeElapsed,
+      });
     } finally {
       setIsSubmitting(false);
     }

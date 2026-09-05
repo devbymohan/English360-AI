@@ -18,10 +18,8 @@ export const TestResultsPage = () => {
   const loadResult = async () => {
     setLoading(true);
     try {
-      if (id && id !== 'recent') {
-        const data = await testService.getResultById(id);
-        if (data) setResult(data);
-      }
+      const data = await testService.getResultById(id || 'recent');
+      if (data) setResult(data);
     } catch (err) {
       console.warn('[TestResultsPage] Fetch notice:', err.message);
     } finally {

@@ -174,6 +174,19 @@ export const ListeningPage = () => {
       }
     } catch (err) {
       console.warn('[ListeningPage] Submit listening error:', err.message);
+      let correct = 0;
+      lesson.questions.forEach((q, idx) => {
+        if (selectedAnswers[idx] === q.correctAnswer) correct++;
+      });
+      const total = lesson.questions.length || 10;
+      const score = Math.round((correct / total) * 100);
+      setSubmissionResult({
+        score,
+        accuracy: score,
+        correctCount: correct,
+        wrongCount: total - correct,
+        total,
+      });
     } finally {
       setIsSubmitting(false);
     }

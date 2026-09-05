@@ -5,6 +5,7 @@ import { Button } from '../components/common/Button';
 import { ProgressCircle } from '../components/common/ProgressCircle';
 import { writingService } from '../services/writingService';
 import { useAuth } from '../context/AuthContext';
+import { recordMeaningfulActivity } from '../utils/streakManager';
 
 const DEFAULT_TOPICS = [
   'The Impact of Technology on Students',
@@ -114,11 +115,23 @@ export const WritingPage = () => {
           updateUserState({ streak: result.streak });
         }
       } else {
-        setEvaluation(getFallbackWritingEvaluation(topic, essayContent));
+        const fallback = getFallbackWritingEvaluation(topic, essayContent);
+        setEvaluation(fallback);
+        const { streak } = recordMeaningfulActivity('writing', {
+          title: `Writing: ${topic}`,
+          score: fallback.overallScore,
+        });
+        if (updateUserState) updateUserState({ streak });
       }
     } catch (err) {
       console.warn('[WritingPage] Evaluation error:', err.message);
-      setEvaluation(getFallbackWritingEvaluation(topic, essayContent));
+      const fallback = getFallbackWritingEvaluation(topic, essayContent);
+      setEvaluation(fallback);
+      const { streak } = recordMeaningfulActivity('writing', {
+        title: `Writing: ${topic}`,
+        score: fallback.overallScore,
+      });
+      if (updateUserState) updateUserState({ streak });
     } finally {
       setIsEvaluating(false);
     }
