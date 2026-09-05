@@ -67,6 +67,9 @@ export const AuthProvider = ({ children }) => {
       fbUser.email?.toLowerCase().includes('mohankumar')
     );
 
+    const hasExplicitIncomplete = cached?.assessmentCompleted === false;
+    const isMohanFallback = !hasExplicitIncomplete && isMohanKumar;
+
     const data = mongoData || cached;
     const name = data?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student';
     
@@ -84,11 +87,11 @@ export const AuthProvider = ({ children }) => {
       level = cached.englishLevel;
     } else if (cached?.level && cached.level !== 'Not Assessed') {
       level = cached.level;
-    } else if (isMohanKumar) {
+    } else if (isMohanFallback) {
       level = 'A2';
     }
 
-    const overallScore = mongoData?.overallScore ?? fbMeta?.overallScore ?? cached?.overallScore ?? (isMohanKumar ? 52 : 0);
+    const overallScore = mongoData?.overallScore ?? fbMeta?.overallScore ?? cached?.overallScore ?? (isMohanFallback ? 52 : 0);
     const clientStreak = getClientStreak(fbUser.uid);
     const streak = typeof mongoData?.streak === 'number' && mongoData.streak > 0
       ? mongoData.streak
@@ -101,8 +104,8 @@ export const AuthProvider = ({ children }) => {
     const assessmentCompleted = Boolean(
       mongoData?.assessmentCompleted ||
       fbMeta?.assessmentCompleted ||
-      cached?.assessmentCompleted ||
-      isMohanKumar ||
+      (cached?.assessmentCompleted === true) ||
+      (isMohanFallback && !hasExplicitIncomplete) ||
       (level !== 'Not Assessed')
     );
 
@@ -238,13 +241,14 @@ export const AuthProvider = ({ children }) => {
         firebaseUser.email?.toLowerCase().includes('mohankumar')
       );
 
+      const hasExplicitIncomplete = cached?.assessmentCompleted === false;
       const hasLocalCompleted = Boolean(
-        cached?.assessmentCompleted ||
+        (cached?.assessmentCompleted === true) ||
         (cached?.level && cached.level !== 'Not Assessed') ||
         (cached?.englishLevel && cached.englishLevel !== 'Not Assessed')
       );
 
-      if ((hasLocalCompleted || isMohanKumar) && !fbMeta?.assessmentCompleted) {
+      if (!hasExplicitIncomplete && (hasLocalCompleted || isMohanKumar) && !fbMeta?.assessmentCompleted) {
         const syncLevel = cached?.level || cached?.englishLevel || 'A2';
         const syncScore = cached?.overallScore ?? (isMohanKumar ? 52 : 0);
         const syncStreak = cached?.streak ?? 0;
@@ -334,10 +338,29 @@ export const AuthProvider = ({ children }) => {
       if (isFirebaseConfigured && auth) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        const formatted = formatUserObject(userCredential.user);
-        setUser(formatted);
+        // Brand-new registration always starts with a fresh profile & incomplete assessment
+        const newUserProfile = {
+          uid: userCredential.user.uid,
+          id: userCredential.user.uid,
+          email: userCredential.user.email,
+          name: name || 'Student',
+          displayName: name || 'Student',
+          photoURL: '',
+          avatar: '',
+          level: 'Not Assessed',
+          englishLevel: 'Not Assessed',
+          levelLabel: 'Not Assessed',
+          overallScore: 0,
+          streak: 0,
+          points: 0,
+          assessmentCompleted: false,
+          isPremium: false,
+        };
+        setCachedProfile(userCredential.user.uid, newUserProfile);
+        setUser(newUserProfile);
+        setHasCompletedAssessmentState(false);
         await syncWithBackend(userCredential.user);
-        return { success: true, user: formatted };
+        return { success: true, user: newUserProfile };
       } else {
         // Fallback if Firebase not configured
         const fallbackUser = {
@@ -357,6 +380,7 @@ export const AuthProvider = ({ children }) => {
           isPremium: false,
         };
         setUser(fallbackUser);
+        setHasCompletedAssessmentState(false);
         return { success: true, user: fallbackUser };
       }
     } catch (error) {
@@ -405,7 +429,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 3. Google Sign-In with Mobile Redirect & Desktop Popup Support
+  // 3. Google Sign-In with Popup First (Mobile & Desktop) and Redirect Fallback
   const googleLogin = async () => {
     setLoading(true);
     setRedirectError('');
@@ -417,43 +441,34 @@ export const AuthProvider = ({ children }) => {
           );
         }
 
-        const isMobile = isMobileBrowser();
+        // Modern mobile Chrome & Safari support signInWithPopup on direct user tap.
+        // signInWithPopup avoids 3rd-party cookie partitioning issues on cross-origin hosts (like Vercel).
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          const formatted = formatUserObject(result.user);
+          setUser(formatted);
+          const mongoUser = await syncWithBackend(result.user);
+          return { success: true, user: formatted, mongoUser };
+        } catch (popupErr) {
+          console.warn('[AuthContext] Popup sign-in error, evaluating redirect fallback:', popupErr.code, popupErr.message);
 
-        if (isMobile) {
-          // On mobile devices, signInWithRedirect avoids popup blocker suppression and tab-freeze on iOS/Android
-          try {
+          const popupBlockedCodes = [
+            'auth/popup-blocked',
+            'auth/cancelled-popup-request',
+          ];
+
+          if (popupBlockedCodes.includes(popupErr.code) || popupErr.message?.toLowerCase().includes('popup')) {
+            console.log('[AuthContext] Popup blocked or not supported, falling back to redirect...');
             await signInWithRedirect(auth, googleProvider);
             return { redirecting: true };
-          } catch (redirectErr) {
-            console.warn('[AuthContext] Mobile redirect failed, attempting popup fallback:', redirectErr.message);
-            const result = await signInWithPopup(auth, googleProvider);
-            const formatted = formatUserObject(result.user);
-            setUser(formatted);
-            const mongoUser = await syncWithBackend(result.user);
-            return { success: true, user: formatted, mongoUser };
           }
-        } else {
-          // On desktop, use popup for immediate authentication without page reload
-          try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const formatted = formatUserObject(result.user);
-            setUser(formatted);
-            const mongoUser = await syncWithBackend(result.user);
-            return { success: true, user: formatted, mongoUser };
-          } catch (popupErr) {
-            // If desktop browser blocked popup (e.g. Brave, AdBlock, strict privacy), fallback to redirect
-            const popupBlockedCodes = [
-              'auth/popup-blocked',
-              'auth/popup-closed-by-user',
-              'auth/cancelled-popup-request',
-            ];
-            if (popupBlockedCodes.includes(popupErr.code) || popupErr.message?.toLowerCase().includes('popup')) {
-              console.log('[AuthContext] Desktop popup blocked, redirecting to Google sign-in...');
-              await signInWithRedirect(auth, googleProvider);
-              return { redirecting: true };
-            }
+
+          // If the user explicitly closed popup window, rethrow so UI can handle it gracefully
+          if (popupErr.code === 'auth/popup-closed-by-user') {
             throw popupErr;
           }
+
+          throw popupErr;
         }
       } else {
         const fallbackUser = {
@@ -479,9 +494,7 @@ export const AuthProvider = ({ children }) => {
       const friendlyMessage = getFriendlyAuthErrorMessage(error);
       throw new Error(friendlyMessage);
     } finally {
-      if (!isMobileBrowser()) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 

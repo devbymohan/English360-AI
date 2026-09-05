@@ -26,7 +26,7 @@ export const Input = React.forwardRef(({
         <input
           ref={ref}
           className={cn(
-            'w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition duration-150',
+            'w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition duration-150',
             Icon && 'pl-10',
             rightElement && 'pr-10',
             error && 'border-rose-300 focus:border-rose-500 focus:ring-rose-100',

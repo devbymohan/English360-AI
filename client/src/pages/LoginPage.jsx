@@ -66,7 +66,7 @@ export const LoginPage = () => {
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim().toLowerCase(), password);
       // Already registered users logging in go directly to Dashboard
       const target =
         location.state?.from?.pathname && location.state.from.pathname !== '/assessment'
@@ -98,6 +98,7 @@ export const LoginPage = () => {
       navigate(target, { replace: true });
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -126,8 +127,8 @@ export const LoginPage = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-3 sm:p-6 md:p-8">
       <div className="max-w-4xl w-full bg-white rounded-3xl border border-slate-100 shadow-elevated overflow-hidden grid grid-cols-1 md:grid-cols-2">
-        {/* Left Side: Value Props */}
-        <div className="bg-gradient-to-br from-brand-50/70 via-indigo-50/40 to-purple-50/70 p-6 sm:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100">
+        {/* Left Side: Value Props (Desktop/Tablet) */}
+        <div className="hidden md:flex bg-gradient-to-br from-brand-50/70 via-indigo-50/40 to-purple-50/70 p-6 sm:p-8 flex-col justify-between border-r border-slate-100">
           <div>
             <Link to="/" className="flex items-center gap-2.5 mb-6 sm:mb-8">
               <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm">
@@ -176,9 +177,22 @@ export const LoginPage = () => {
 
         {/* Right Side: Form */}
         <div className="p-6 sm:p-8 md:p-10 flex flex-col justify-center">
-          <div className="text-right text-xs text-slate-500 mb-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-bold text-brand-600 hover:underline">
+          {/* Mobile Header Branding */}
+          <div className="flex items-center justify-between mb-4 md:hidden">
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-extrabold text-slate-900">English360 AI</span>
+            </Link>
+            <Link to="/register" className="text-xs font-bold text-brand-600 hover:underline">
+              Sign up
+            </Link>
+          </div>
+
+          <div className="hidden md:flex justify-end text-xs text-slate-500 mb-6">
+            <span>Don't have an account?{' '}</span>
+            <Link to="/register" className="font-bold text-brand-600 hover:underline ml-1">
               Sign up
             </Link>
           </div>
@@ -206,6 +220,9 @@ export const LoginPage = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect="off"
               required
             />
 
@@ -217,6 +234,8 @@ export const LoginPage = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
+              autoCapitalize="none"
+              autoComplete="current-password"
               required
               rightElement={
                 <button
